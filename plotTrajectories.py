@@ -247,19 +247,23 @@ def plotOneTrajectory(trajectory, show = True, clean = True):
 	"""
 	trajectory = np.asarray(trajectory)
 	plt.plot(trajectory[0:len(trajectory),data_dict_x_y_coordinate['x']], trajectory[0:len(trajectory),data_dict_x_y_coordinate['y']])
-	plt.gca().invert_yaxis()
+	if(not plt.gca().yaxis_inverted()):
+		plt.gca().invert_yaxis()
 	if(show):
 		plt.show()
 	if(clean):
 		plt.clf()
 
-def plotListOfTrajectories(trajectories, show = True, clean = True):
+def plotListOfTrajectories(trajectories, show = True, clean = True, save = False, fname = ""):
 	"""
 	Give a list of trajectories that are already converted into XY plane
 	"""
 	for i in range(0, len(trajectories)):
 		plotOneTrajectory(trajectories[i], False, False)
-	# plt.gca().invert_yaxis()
+	if(not plt.gca().yaxis_inverted()):
+		plt.gca().invert_yaxis()
+	if(save):
+		plt.savefig("./{path}/{fname}.png".format(path = "plots", fname = fname))
 	if(show):
 		plt.show()
 	if(clean):
@@ -403,8 +407,22 @@ def interpolateTrajectorypointsGeographical(trajectory,d):
 
 	print "end of interpolation of X, Y for one trajectory:", len(interpolated_points)
 	plt.plot([point.x for point in interpolated_points], [point.y for point in interpolated_points])
-	plt.gca().invert_yaxis()
+	if(not plt.gca().yaxis_inverted()):
+		plt.gca().invert_yaxis()
 	plt.show()
+
+def findGridPointNearestTrajectoryPos(trajectory, grid_x_index, grid_y_index, grid_x, grid_y):
+	x_coord = grid_x[grid_x_index][grid_y_index]
+	y_coord = grid_y[grid_x_index][grid_y_index]
+	grid_score = distanceScore(x_coord, y_coord, trajectory[0][data_dict_x_y_coordinate["x"]], trajectory[0][data_dict_x_y_coordinate["y"]])
+	nearest_pos = 0
+	for k in range(1, len(trajectory)):
+		cur_distance_score = distanceScore(x_coord, y_coord, trajectory[k][data_dict_x_y_coordinate["x"]], trajectory[k][data_dict_x_y_coordinate["y"]])
+		if(cur_distance_score < grid_score):
+			grid_score = cur_distance_score
+			nearest_pos = k
+	return nearest_pos
+
 
 
 def distanceScore(grid_x, grid_y, x, y):
@@ -435,9 +453,11 @@ def interpolateGeographicalGrid(trajectory):
 	Input: trajectory in x, y coordinate
 	return: grid interpolated trajectory (x,y) coordinates, in km (grid), of shape (n,2)
 	"""
+	GRID_TO_NEAREST_POS = {}
+
 	origin = trajectory[0]
 	end = trajectory[len(trajectory) -1]
-	scale = 15
+	scale = 100
 	min_x = 0
 	max_x = 0
 	min_y = 0	
@@ -458,21 +478,31 @@ def interpolateGeographicalGrid(trajectory):
 	# grid_x, grid_y = np.mgrid[0:19:complex(0,scale), 0:19:complex(0,scale)]
 	print grid_x.shape
 	print grid_y.shape
-	for i in range(0, scale):
-		for j in range(0, scale):
-			print "gird[{i},{j}]'s coordinate".format(i = i, j = j), " = (", grid_x[i][j], " , " , grid_y[i][j], ")"
+	# for i in range(0, scale):
+		# for j in range(0, scale):
+			# print "gird[{i},{j}]'s coordinate".format(i = i, j = j), " = (", grid_x[i][j], " , " , grid_y[i][j], ")"
 	grid_score = np.zeros(shape = (scale, scale)) # the distance score, the smaller, the better
 
 	"""Set up the scores for the grid"""
 	for i in range(0, scale):
 		for j in range(0, scale):
+			# print "checking grid point ", grid_x[i][j], ",", grid_y[i][j], ": first data point: ", trajectory[0][data_dict_x_y_coordinate["x"]], ",", trajectory[0][data_dict_x_y_coordinate["y"]]
 			grid_score[i][j] = distanceScore(grid_x[i][j], grid_y[i][j], trajectory[0][data_dict_x_y_coordinate["x"]], trajectory[0][data_dict_x_y_coordinate["y"]])
+			# print "checking grid point ", grid_x[i][j], ",", grid_y[i][j], ": initial distance = ", grid_score[i][j]
+			nearest_pos = 0
 			for k in range(1, len(trajectory)):
-				cur_distance_score = distanceScore(grid_x[i][j], grid_y[i][j], trajectory[i][data_dict_x_y_coordinate["x"]], trajectory[i][data_dict_x_y_coordinate["y"]])
+				cur_distance_score = distanceScore(grid_x[i][j], grid_y[i][j], trajectory[k][data_dict_x_y_coordinate["x"]], trajectory[k][data_dict_x_y_coordinate["y"]])
 				if(cur_distance_score < grid_score[i][j]):
 					grid_score[i][j] = cur_distance_score
+					nearest_pos = k
+			# print "nearest pos for grid point ", grid_x[i][j], ",", grid_y[i][j], " is ", nearest_pos
+			GRID_TO_NEAREST_POS["{i}_{j}".format(i =i , j = j)] = nearest_pos
 
-	print "grid_score:\n", grid_score
+	# print "GRID_TO_NEAREST_POS:\n",GRID_TO_NEAREST_POS
+	# for key, value in GRID_TO_NEAREST_POS.iteritems():
+	# 	print key,":", value
+
+	print "grid_score set up done!\n"
 
 	"""traverse the grid to get best approximate path of the trajectory"""
 	# find start grid point
@@ -488,15 +518,95 @@ def interpolateGeographicalGrid(trajectory):
 	interpolated_trajectory = []
 	interpolated_trajectory.append(createTrajectoryPointRecordWithXY(start_grid_x, start_grid_y, grid_x, grid_y))
 	# start populating the grid points until meeting end
+	pos = 0 # first data point
 	cur_grid_x = start_grid_x # these are indexes, not actually coornidates
 	cur_grid_y = start_grid_y
 	visited = np.zeros(shape = (scale, scale))
 	visited[cur_grid_x][cur_grid_y] = 1
-	print "start_grid_x, start_grid_y = ", start_grid_x, " , ", start_grid_y
-	while( (not allGridVisited(visited) ) and distanceScore(grid_x[cur_grid_x][cur_grid_y], grid_y[cur_grid_x][cur_grid_y], end[data_dict_x_y_coordinate["x"]], end[data_dict_x_y_coordinate["y"]]) > 0.05):
+	# print "start_grid_x, start_grid_y = ", grid_x[start_grid_x][start_grid_y], " , ", grid_y[start_grid_x][start_grid_y]
+	# print "start_grid_x, start_grid_y = ", start_grid_x, " , ", start_grid_y
+
+	### Algo1 ###
+	# while( pos < len(trajectory) and (not allGridVisited(visited) ) and distanceScore(grid_x[cur_grid_x][cur_grid_y], grid_y[cur_grid_x][cur_grid_y], end[data_dict_x_y_coordinate["x"]], end[data_dict_x_y_coordinate["y"]]) > 0.1):
+	# 	next_score = MAX_FLOAT
+	# 	next_grid_x = None
+	# 	next_grid_y = None
+
+	# 	for i in range(cur_grid_x - 1, cur_grid_x + 2):
+	# 		for j in range(cur_grid_y -1, cur_grid_y + 2):
+	# 			# only check up, down, left, right
+	# 			if(not (i == cur_grid_x and j == cur_grid_y) and \
+	# 				not (i == cur_grid_x - 1 and j == cur_grid_y - 1) and \
+	# 				not (i == cur_grid_x - 1 and j == cur_grid_y + 1) and \
+	# 				not (i == cur_grid_x + 1 and j == cur_grid_y + 1) and \
+	# 				not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
+	# 				if(i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]): # if out of bound
+	# 					this_option_score = MAX_FLOAT
+	# 				elif(visited[i][j] == 1): # if visited already
+	# 					this_option_score = MAX_FLOAT
+	# 				elif(GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] < pos): # if corresponds to a previous data pos, don't wanna go back either
+	# 					this_option_score = MAX_FLOAT
+	# 				else:
+	# 					this_option_score = grid_score[i][j]
+	# 					visited[i][j] = 1 # mark as visited
+	# 				# update next_score, next_grid_x, next_grid_y if score smaller
+	# 				if(this_option_score < next_score):
+	# 					next_score = this_option_score
+	# 					next_grid_x = i
+	# 					next_grid_y = j
+
+
+	# 	# after checking up, left, right, down
+	# 	if(next_score == MAX_FLOAT):
+	# 		break; # still max float, can not populate anymore
+	# 	else:
+	# 		interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+	# 		cur_grid_x = next_grid_x
+	# 		cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
+	# 		pos = GRID_TO_NEAREST_POS["{i}_{j}".format(i =next_grid_x , j = next_grid_y)]
+
+	### Algo2 Go for the nearest next data pos : might work after initial cleaning of trajectory###
+	# while( pos + 1 < len(trajectory) and (not allGridVisited(visited) ) and distanceScore(grid_x[cur_grid_x][cur_grid_y], grid_y[cur_grid_x][cur_grid_y], end[data_dict_x_y_coordinate["x"]], end[data_dict_x_y_coordinate["y"]]) > 0.05):
+	# 	next_pos_point = trajectory[pos + 1]
+	# 	next_score = MAX_FLOAT
+	# 	next_grid_x = None
+	# 	next_grid_y = None
+
+	# 	for i in range(cur_grid_x - 1, cur_grid_x + 2):
+	# 		for j in range(cur_grid_y -1, cur_grid_y + 2):
+	# 			# only check up, down, left, right
+	# 			if(not (i == cur_grid_x and j == cur_grid_y) and \
+	# 				not (i == cur_grid_x - 1 and j == cur_grid_y - 1) and \
+	# 				not (i == cur_grid_x - 1 and j == cur_grid_y + 1) and \
+	# 				not (i == cur_grid_x + 1 and j == cur_grid_y + 1) and \
+	# 				not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
+	# 				if( not (i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]) and not (visited[i][j] == 1) ): # if not out of bound and not yet visited
+	# 					this_option_score = distanceScore(grid_x[i][j], grid_y[i][j], next_pos_point[data_dict_x_y_coordinate["x"]], next_pos_point[data_dict_x_y_coordinate["y"]])
+	# 					visited[i][j] = 1 # mark as visited
+	# 					if(this_option_score < next_score): # find the index with minimum distance to the next point
+	# 						next_score = this_option_score
+	# 						next_grid_x = i
+	# 						next_grid_y = j
+
+	# 	if(next_score == MAX_FLOAT):
+	# 		break;
+	# 	else:
+	# 		interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+	# 		pos = pos + 1 if (GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)] == pos + 1) else pos # update data pos if needed
+	# 		# pos = pos + 1 if (distanceScore(grid_x[next_grid_x][next_grid_y], grid_y[next_grid_x][next_grid_y], \
+	# 		# next_pos_point[data_dict_x_y_coordinate["x"]], next_pos_point[data_dict_x_y_coordinate["y"]]) < 0.1) else pos # update data pos if needed
+	# 		cur_grid_x = next_grid_x
+	# 		cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
+
+
+	### Algo3 ###
+	while( pos + 1 < len(trajectory) and (not allGridVisited(visited) ) and distanceScore(grid_x[cur_grid_x][cur_grid_y], grid_y[cur_grid_x][cur_grid_y], end[data_dict_x_y_coordinate["x"]], end[data_dict_x_y_coordinate["y"]]) > 0.1):
+		next_pos_point = trajectory[pos + 1]
 		next_score = MAX_FLOAT
 		next_grid_x = None
 		next_grid_y = None
+
+		flag_all_neighbours_closet_to_cur_pos = True
 		for i in range(cur_grid_x - 1, cur_grid_x + 2):
 			for j in range(cur_grid_y -1, cur_grid_y + 2):
 				# only check up, down, left, right
@@ -505,45 +615,99 @@ def interpolateGeographicalGrid(trajectory):
 					not (i == cur_grid_x - 1 and j == cur_grid_y + 1) and \
 					not (i == cur_grid_x + 1 and j == cur_grid_y + 1) and \
 					not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
-					if(i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]): # if out of bound
-						this_option_score = MAX_FLOAT
-					elif(visited[i][j] == 1): # if visited already
-						this_option_score = MAX_FLOAT
-					else:
-						this_option_score = grid_score[i][j]
-						visited[i][j] = 1 # mark as visited
-					# update next_score, next_grid_x, next_grid_y if score smaller
-					if(this_option_score < next_score):
-						next_score = this_option_score
-						next_grid_x = i
-						next_grid_y = j
+					if( not (i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]) and not (visited[i][j] == 1) ): # if not out of bound and not yet visited
+						if(GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] > pos):
+							flag_all_neighbours_closet_to_cur_pos = False
 
+		if(flag_all_neighbours_closet_to_cur_pos): # if all neighours are closest to current pos
+			for i in range(cur_grid_x - 1, cur_grid_x + 2):
+				for j in range(cur_grid_y -1, cur_grid_y + 2):
+					# only check up, down, left, right
+					if(not (i == cur_grid_x and j == cur_grid_y) and \
+						not (i == cur_grid_x - 1 and j == cur_grid_y - 1) and \
+						not (i == cur_grid_x - 1 and j == cur_grid_y + 1) and \
+						not (i == cur_grid_x + 1 and j == cur_grid_y + 1) and \
+						not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
+						if( not (i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]) and not (visited[i][j] == 1) ): # if not out of bound and not yet visited
+							this_option_score = distanceScore(grid_x[i][j], grid_y[i][j], next_pos_point[data_dict_x_y_coordinate["x"]], next_pos_point[data_dict_x_y_coordinate["y"]])
+							visited[i][j] = 1 # mark as visited
+							if(this_option_score < next_score): # find the grid point with minimum distance to the next point
+								next_score = this_option_score
+								next_grid_x = i
+								next_grid_y = j
 
-		# after checking up, left, right, down
-		if(next_score == MAX_FLOAT):
-			break; # still max float, can not populate anymore
+			if(next_score == MAX_FLOAT): # if all visited, break
+				break;
+			else:
+				interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+				pos = pos + 1 if (GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)] == pos + 1) else pos # update data pos if needed
+				cur_grid_x = next_grid_x
+				cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
+				print "Case1: cur_grid_x coord:", grid_x[cur_grid_x][cur_grid_y], ", cur_grid_y coord:", grid_y[cur_grid_x][cur_grid_y], ", pos: ", GRID_TO_NEAREST_POS["{i}_{j}".format(i =cur_grid_x , j = cur_grid_y)], \
+				", pos data coordinate: (", trajectory[pos][data_dict_x_y_coordinate["x"]], ",", trajectory[pos][data_dict_x_y_coordinate["y"]], ")"
+
 		else:
-			interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
-			cur_grid_x = next_grid_x
-			cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
-			print "cur_grid_x, cur_grid_y = ", cur_grid_x, " , ", cur_grid_y
+			for i in range(cur_grid_x - 1, cur_grid_x + 2):
+				for j in range(cur_grid_y -1, cur_grid_y + 2):
+					# only check up, down, left, right
+					if(not (i == cur_grid_x and j == cur_grid_y) and \
+						not (i == cur_grid_x - 1 and j == cur_grid_y - 1) and \
+						not (i == cur_grid_x - 1 and j == cur_grid_y + 1) and \
+						not (i == cur_grid_x + 1 and j == cur_grid_y + 1) and \
+						not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
+						if(i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]): # if out of bound
+							this_option_score = MAX_FLOAT
+						elif(visited[i][j] == 1): # if visited already
+							this_option_score = MAX_FLOAT
+						elif(GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] < pos): # if corresponds to a previous data pos, don't wanna go back either
+							this_option_score = MAX_FLOAT
+						else:
+							this_option_score = grid_score[i][j]
+							# visited[i][j] = 1 # mark as visited
+						
+						
+						# if(pos == 16 and this_option_score!= MAX_FLOAT):
+							# print "check grid:", grid_x[i][j], ",", grid_y[i][j], ", score:", this_option_score, "; corresponds: ", GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)]
+
+						# if(next_grid_x == None and next_grid_y == None): # if first valid score, just assign
+						# 	next_score = this_option_score
+						# 	next_grid_x = i
+						# 	next_grid_y = j
+						# elif((this_option_score < next_score and \
+						# 	GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] >= GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)]) or \
+						# 	GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] > GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)]):
+						if(this_option_score < next_score): # update next_score, next_grid_x, next_grid_y if score smaller
+							next_score = this_option_score
+							next_grid_x = i
+							next_grid_y = j
+
+			# after checking up, left, right, down
+			if(next_score == MAX_FLOAT):
+				break; # still max float, can not populate anymore
+			else:
+				# if(pos == 16):
+					# print "end of evaluation for neighours"
+				visited[next_grid_x][next_grid_y] = 1
+				interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+				cur_grid_x = next_grid_x
+				cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
+				pos = GRID_TO_NEAREST_POS["{i}_{j}".format(i =next_grid_x , j = next_grid_y)] 
+				print "Case2: cur_grid_x coord:", grid_x[cur_grid_x][cur_grid_y], ", cur_grid_y coord:", grid_y[cur_grid_x][cur_grid_y], ", pos: ", GRID_TO_NEAREST_POS["{i}_{j}".format(i =cur_grid_x , j = cur_grid_y)], \
+				", pos data coordinate: (", trajectory[pos][data_dict_x_y_coordinate["x"]], ",", trajectory[pos][data_dict_x_y_coordinate["y"]], ")"
 
 	print "len(interpolated_trajectory):", len(interpolated_trajectory)
 	return np.asarray(interpolated_trajectory)
 
-
-
-
-
-def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate):
+def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate, fname = ""):
 	# d = 0.1 # take a point every 100 metre
+
 	interpolated_trajectories_x_y_coordinate = []
 	for i in range(0, len(trajectories_x_y_coordinate)):
 		# interpolated_trajectories_x_y_coordinate.append(interpolateTrajectorypointsGeographical(trajectories_x_y_coordinate[i],d))
 		interpolated_trajectories_x_y_coordinate.append(interpolateGeographicalGrid(trajectories_x_y_coordinate[i]))
-	print interpolated_trajectories_x_y_coordinate
+	# print interpolated_trajectories_x_y_coordinate
 	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape	
-	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate)
+	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate, show = True, clean = True, save = True, fname = fname)
 
 
 def notNoise(prevPosition, nextPosition, MAX_SPEED):
@@ -687,7 +851,7 @@ def extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitu
 	# print "OD_trajectories[0][0]:",OD_trajectories[0][0]
 	return trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon
 
-def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitude, endLongtitude, show = True):
+def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
 	"""
 	returns: OD_trajectories: in x,y coordinate;
 			 OD_trajectories_lat_lon: in lat, lon coordinate;
@@ -726,11 +890,16 @@ def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitu
 			OD_trajectories[i][j][data_dict_x_y_coordinate["x"]] = x
 		
 		
-		plt.plot(OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["x"]], \
+		plt.scatter(OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["x"]], \
 			OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["y"]])
-	if(show):
+	if(not plt.gca().yaxis_inverted()):
 		plt.gca().invert_yaxis()
+	if(save):
+		plt.savefig("./{path}/{fname}.png".format(path = "plots", fname = fname))
+	if(show):
 		plt.show()
+	if(clean):
+		plt.clf()
 
 	return OD_trajectories, OD_trajectories_lat_lon
 
@@ -816,13 +985,42 @@ def main():
 	filenames = ["9664225.csv"]
 	for i in range(0, len(filenames)):
 		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i])))
-		writeToCSV.writeDataToCSV(this_vessel_endpoints,"tankers/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
+		# writeToCSV.writeDataToCSV(this_vessel_endpoints,"tankers/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
 		print "this_vessel_endpoints.shape:", this_vessel_endpoints.shape	
 		
 		if(endpoints == None):
 			endpoints = this_vessel_endpoints
 		else:
 			endpoints = np.concatenate((endpoints, this_vessel_endpoints), axis=0)
+
+		for s in range (0, len(this_vessel_endpoints) - 1):
+		# for s in range (5, 6):
+			originLatitude = this_vessel_endpoints[s][dataDict["latitude"]]
+			originLongtitude = this_vessel_endpoints[s][dataDict["longtitude"]]
+			origin_ts = this_vessel_endpoints[s][dataDict["ts"]]
+
+			endLatitude = this_vessel_endpoints[s + 1][dataDict["latitude"]]
+			endLongtitude = this_vessel_endpoints[s + 1][dataDict["longtitude"]]	
+			end_ts = this_vessel_endpoints[s + 1][dataDict["ts"]]
+
+			if(end_ts - origin_ts <= 3600 * 24): # if there could be possibly a trajectory between theses two this_vessel_endpoints; Could do a check here or just let the extractAndPlotTrajectories return empty array
+				OD_trajectories, OD_trajectories_lat_lon = extractTrajectoriesUntilOD(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i]), originLatitude, originLongtitude, endLatitude, endLongtitude, show = False, save = True, clean = False, fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+
+				writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[0],"tankers/trajectories", "{filename}_trajectory_endpoint_{s}_to_{e}".format(filename = filenames[i][:filenames[i].find(".")], s = s, e = s + 1))
+
+				"""
+				Clutering based on temporal information based trajectory, need to only consider trajectories between nicely found O-D
+				"""
+				# temporalTrajectoryInterpolation(OD_trajectories)
+
+				"""
+				Clustering based on pure geographycal trajectory, ignore temporal information
+				"""
+				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
+				geographicalTrajetoryInterpolation(OD_trajectories, filenames[i][:filenames[i].find(".")] + "_interpolated_algo3_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+
+				# raise ValueError("Purpoes Break for first pair of end point")
+	
 	print "Final endpoints.shape:", endpoints.shape
 
 	
@@ -846,36 +1044,15 @@ def main():
 	# endLatitude = 1.237067419175662 # test for aggregateData
 	# endLongtitude = 103.79633903503418 # test for aggregateData
 
-	for s in range (0, len(endpoints) - 1):
-		originLatitude = endpoints[s][dataDict["latitude"]]
-		originLongtitude = endpoints[s][dataDict["longtitude"]]
-		origin_ts = endpoints[s][dataDict["ts"]]
+	
+	# trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon= extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitude, endLongtitude)
+	# # plotListOfTrajectories(OD_trajectories,True, True)
+	# # writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[2][185:],"tankers/trajectories", "aggregateData_OD_trajectory_{i}_afterFistHour3600".format(i = 2))
+	# # for i in range(0, len(OD_trajectories_lat_lon)):
+	# 	# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[i],"tankers/trajectories", "aggregateData_OD_trajectory_{i}".format(i = i))
+			
 
-		endLatitude = endpoints[s + 1][dataDict["latitude"]]
-		endLongtitude = endpoints[s + 1][dataDict["longtitude"]]	
-		end_ts = endpoints[s + 1][dataDict["ts"]]
-
-		if(end_ts - origin_ts <= 3600 * 24): # if there could be possibly a trajectory between theses two endpoints; Could do a check here or just let the extractAndPlotTrajectories return empty array
-			OD_trajectories, OD_trajectories_lat_lon = extractTrajectoriesUntilOD(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i]), originLatitude, originLongtitude, endLatitude, endLongtitude)
-		# trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon= extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitude, endLongtitude)
-		# # plotListOfTrajectories(OD_trajectories,True, True)
-		# # writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[2][185:],"tankers/trajectories", "aggregateData_OD_trajectory_{i}_afterFistHour3600".format(i = 2))
-		# # for i in range(0, len(OD_trajectories_lat_lon)):
-		# 	# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[i],"tankers/trajectories", "aggregateData_OD_trajectory_{i}".format(i = i))
-		
-
-		"""
-		Clutering based on temporal information based trajectory, need to only consider trajectories between nicely found O-D
-		"""
-		# temporalTrajectoryInterpolation(OD_trajectories)
-
-		"""
-		Clustering based on pure geographycal trajectory, ignore temporal information
-		"""
-		# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
-		geographicalTrajetoryInterpolation(OD_trajectories)
-
-		# raise ValueError("Purpoes Break for first pair of end point")
+			
 
 
 
