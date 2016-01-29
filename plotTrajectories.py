@@ -49,6 +49,8 @@ NEIGHBOURHOOD = 0.2
 
 NEIGHBOURHOOD_ENDPOINT = 0.1
 
+NEIGHBOURHOOD_ORIGIN = 0.1
+
 STAYTIME_THRESH = 1800 # 1 hour
 
 MAX_FLOAT = sys.float_info.max
@@ -483,6 +485,7 @@ def interpolateGeographicalGrid(trajectory):
 			# print "gird[{i},{j}]'s coordinate".format(i = i, j = j), " = (", grid_x[i][j], " , " , grid_y[i][j], ")"
 	grid_score = np.zeros(shape = (scale, scale)) # the distance score, the smaller, the better
 
+	print "set up complexity: ", scale*scale, " * ", len(trajectory)
 	"""Set up the scores for the grid"""
 	for i in range(0, scale):
 		for j in range(0, scale):
@@ -502,7 +505,7 @@ def interpolateGeographicalGrid(trajectory):
 	# for key, value in GRID_TO_NEAREST_POS.iteritems():
 	# 	print key,":", value
 
-	print "grid_score set up done!\n"
+	print "grid_score set up done!"
 
 	"""traverse the grid to get best approximate path of the trajectory"""
 	# find start grid point
@@ -548,19 +551,17 @@ def interpolateGeographicalGrid(trajectory):
 	# 					this_option_score = MAX_FLOAT
 	# 				else:
 	# 					this_option_score = grid_score[i][j]
-	# 					visited[i][j] = 1 # mark as visited
 	# 				# update next_score, next_grid_x, next_grid_y if score smaller
 	# 				if(this_option_score < next_score):
 	# 					next_score = this_option_score
 	# 					next_grid_x = i
 	# 					next_grid_y = j
-
-
 	# 	# after checking up, left, right, down
 	# 	if(next_score == MAX_FLOAT):
 	# 		break; # still max float, can not populate anymore
 	# 	else:
 	# 		interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+	# 		visited[next_grid_x][next_grid_y] = 1 # mark as visited
 	# 		cur_grid_x = next_grid_x
 	# 		cur_grid_y = next_grid_y # update cur_grid_x, cur_grid_y
 	# 		pos = GRID_TO_NEAREST_POS["{i}_{j}".format(i =next_grid_x , j = next_grid_y)]
@@ -582,7 +583,7 @@ def interpolateGeographicalGrid(trajectory):
 	# 				not (i == cur_grid_x + 1 and j == cur_grid_y - 1)):
 	# 				if( not (i < 0 or i >= grid_score.shape[0] or j < 0 or  j >= grid_score.shape[1]) and not (visited[i][j] == 1) ): # if not out of bound and not yet visited
 	# 					this_option_score = distanceScore(grid_x[i][j], grid_y[i][j], next_pos_point[data_dict_x_y_coordinate["x"]], next_pos_point[data_dict_x_y_coordinate["y"]])
-	# 					visited[i][j] = 1 # mark as visited
+	# 					# visited[i][j] = 1 # mark as visited
 	# 					if(this_option_score < next_score): # find the index with minimum distance to the next point
 	# 						next_score = this_option_score
 	# 						next_grid_x = i
@@ -592,6 +593,7 @@ def interpolateGeographicalGrid(trajectory):
 	# 		break;
 	# 	else:
 	# 		interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
+	# 		visited[next_grid_x][next_grid_y] = 1 # mark as visited
 	# 		pos = pos + 1 if (GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)] == pos + 1) else pos # update data pos if needed
 	# 		# pos = pos + 1 if (distanceScore(grid_x[next_grid_x][next_grid_y], grid_y[next_grid_x][next_grid_y], \
 	# 		# next_pos_point[data_dict_x_y_coordinate["x"]], next_pos_point[data_dict_x_y_coordinate["y"]]) < 0.1) else pos # update data pos if needed
@@ -707,7 +709,8 @@ def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate, fname = ""):
 		interpolated_trajectories_x_y_coordinate.append(interpolateGeographicalGrid(trajectories_x_y_coordinate[i]))
 	# print interpolated_trajectories_x_y_coordinate
 	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape	
-	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate, show = True, clean = True, save = True, fname = fname)
+	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate, show = False, clean = True, save = fname!= "", fname = fname)
+	return interpolated_trajectories_x_y_coordinate
 
 
 def notNoise(prevPosition, nextPosition, MAX_SPEED):
@@ -851,7 +854,7 @@ def extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitu
 	# print "OD_trajectories[0][0]:",OD_trajectories[0][0]
 	return trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon
 
-def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
+def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
 	"""
 	returns: OD_trajectories: in x,y coordinate;
 			 OD_trajectories_lat_lon: in lat, lon coordinate;
@@ -867,7 +870,7 @@ def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitu
 	i = 0
 	while(i< data.shape[0]):
 		cur_pos = data[i]
-		if(nearOrigin(originLatitude, originLongtitude, cur_pos[dataDict["latitude"]], cur_pos[dataDict["longtitude"]], thresh = 0.0)):
+		if(nearOrigin(originLatitude, originLongtitude, cur_pos[dataDict["latitude"]], cur_pos[dataDict["longtitude"]], thresh = 0.0) and cur_pos[dataDict["ts"]] == originTS): # must be exact point
 			this_OD_trajectory = []
 			this_OD_trajectory.append(cur_pos)
 			i += 1
@@ -877,19 +880,27 @@ def extractTrajectoriesUntilOD(data, originLatitude, originLongtitude, endLatitu
 			if(i < data.shape[0]):
 				this_OD_trajectory.append(data[i])
 			this_OD_trajectory = np.asarray(this_OD_trajectory) # make it to be an np 2D array
-			OD_trajectories.append(this_OD_trajectory)
+			# box/radius approach in cleaning of points around origin
+			j = 1
+			print "checking points around origin:", j
+			while(j < this_OD_trajectory.shape[0] and nearOrigin(originLatitude, originLongtitude, this_OD_trajectory[j][dataDict["latitude"]], this_OD_trajectory[j][dataDict["longtitude"]], thresh = NEIGHBOURHOOD_ORIGIN)):
+				j += 1
+			print "last point around origin:", j
+			this_OD_trajectory_around_origin = this_OD_trajectory[0:j]
+			this_OD_trajectory_mean_origin = np.mean(this_OD_trajectory_around_origin, axis = 0)
+			print "mean start point x,y : ", LatLonToXY(originLatitude, originLongtitude, this_OD_trajectory_mean_origin[dataDict["latitude"]], this_OD_trajectory_mean_origin[dataDict["longtitude"]])
+			OD_trajectories.append(np.insert(this_OD_trajectory[j:],0,this_OD_trajectory_mean_origin, axis = 0))
+			break  # only one trajectory per pair OD, since OD might be duplicated
 		i += 1
 
 	OD_trajectories = np.array(OD_trajectories)
-	# print "OD_trajectories.shape:", OD_trajectories.shape
 	OD_trajectories_lat_lon = copy.deepcopy(OD_trajectories)
 	for i in range(0, len(OD_trajectories)):
 		for j in range(0, len(OD_trajectories[i])):
 			x, y = LatLonToXY(originLatitude, originLongtitude, OD_trajectories[i][j][dataDict["latitude"]], OD_trajectories[i][j][dataDict["longtitude"]])
 			OD_trajectories[i][j][data_dict_x_y_coordinate["y"]] = y
 			OD_trajectories[i][j][data_dict_x_y_coordinate["x"]] = x
-		
-		
+		# plotting purpose
 		plt.scatter(OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["x"]], \
 			OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["y"]])
 	if(not plt.gca().yaxis_inverted()):
@@ -916,6 +927,7 @@ def alreadyInEndpoints(endpoints, target):
 def extractEndPoints(data):
 	"""
 	Note: if the trajectory is discontinued because out of detection range, add that last point before out of range, and the new point in range as end point as well
+	TODO: further cleaning of data is needed to extract better end points, eg. 8514019.csv end point 2,3 are actually of the same place but 3 is added due to error point
 	"""
 	endpoints = []
 	print "data.shape:",data.shape
@@ -925,36 +937,66 @@ def extractEndPoints(data):
 		start_index = i
 		
 		while(i+1<data.shape[0]):
+			# print "current start_point:", start_point
 			next_point = data[i+1]
 			if(getDistance(start_point, next_point) > NEIGHBOURHOOD_ENDPOINT):
+				# print "find a point that is out of NEIGHBOURHOOD:", datetime.datetime.fromtimestamp(start_point[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ'), \
+				datetime.datetime.fromtimestamp(next_point[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ')
 				break;
 			i += 1
 
 		next_point = data[i] # back track to get the last data point that is still near start_point
 		if(i - start_index > 0 and next_point[dataDict["ts"]] - start_point[dataDict["ts"]] > STAYTIME_THRESH):
 			# if(not alreadyInEndpoints(endpoints, start_point)): # But should not do the check if the returned endpoints are used to extract trajectories between them
-			endpoints.append(start_point)
+			# print "append since stay more than half hour:", datetime.datetime.fromtimestamp(start_point[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ')
+			if(len(endpoints) == 0 or (not (endpoints[len(endpoints) - 1] == start_point).all())): # if not just appended
+				endpoints.append(start_point)
 
 		# TODO: is there a boundary informaiton on the area that AIS can detect?
 		elif((i+1) != data.shape[0]): # if still has a next postion which is outside neighbour
 			next_point_outside_neighbour = data[i+1]
-			if(next_point_outside_neighbour[dataDict["ts"]] - start_point[dataDict["ts"]] > 24*3600): # if start of new trajectory at a new position
+			if(next_point_outside_neighbour[dataDict["ts"]] - start_point[dataDict["ts"]] > 24*3600): # if start of new trajectory at a new position, or after one day
 			# if(next_point_outside_neighbour[dataDict["ts"]] - start_point[dataDict["ts"]] > \
 			# 	getDistance(start_point, next_point_outside_neighbour)/ \
 			# 	(1*knotToKmPerhour) * 3600): #maximum knot
-				endpoints.append(next_point)
-				endpoints.append(next_point_outside_neighbour)
+				# print "append both, since start of new trajectory:", datetime.datetime.fromtimestamp(next_point[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ'), datetime.datetime.fromtimestamp(next_point_outside_neighbour[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ')
+				if(len(endpoints) == 0 or (not (endpoints[len(endpoints) - 1] == next_point).all())): # if not just appended
+					endpoints.append(next_point)
+				if(len(endpoints) == 0 or (not (endpoints[len(endpoints) - 1] == next_point_outside_neighbour).all())): # if not just appended
+					endpoints.append(next_point_outside_neighbour)
 
 		elif((i+1) == data.shape[0]):
-			endpoints.append(next_point) # last point in the .csv record, should be an end point
+			# print "append since last point", datetime.datetime.fromtimestamp(start_point[dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ')
+			if(len(endpoints) == 0 or (not (endpoints[len(endpoints) - 1] == next_point).all())): # if not just appended
+				endpoints.append(next_point) # last point in the .csv record, should be an end point
 		
+		# DEBUGGING:
+		# if(len(endpoints) >= 77):
+			# break;
 		i += 1
 	
 	return endpoints
 
+def convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, listOfTrajectories):
+	for i in range(0, len(listOfTrajectories)):
+		for j in range(0, len(listOfTrajectories[i])):
+			lat, lon = XYToLatLonGivenOrigin(originLatitude, originLongtitude, listOfTrajectories[i][j][data_dict_x_y_coordinate["x"]], listOfTrajectories[i][j][data_dict_x_y_coordinate["y"]])
+			listOfTrajectories[i][j][dataDict["latitude"]] = lat
+			listOfTrajectories[i][j][dataDict["longtitude"]] = lon
+	return listOfTrajectories
+
+def convertListOfTrajectoriesToXY(originLatitude, originLongtitude, listOfTrajectories):
+	for i in range(0, len(listOfTrajectories)):
+		for j in range(0, len(listOfTrajectories[i])):
+			x, y = LatLonToXY(originLatitude, originLongtitude, listOfTrajectories[i][j][dataDict["latitude"]], listOfTrajectories[i][j][dataDict["longtitude"]])
+			listOfTrajectories[i][j][data_dict_x_y_coordinate["y"]] = y
+			listOfTrajectories[i][j][data_dict_x_y_coordinate["x"]] = x
+	return listOfTrajectories
+
+
 def main():
-	originLongtitude = 62245670/geoScale
-	originLatitude = 718208/geoScale
+	# originLongtitude = 62245670/geoScale
+	# originLatitude = 718208/geoScale
 
 	# filename = "1000019.npz"
 	# filename = "1000019_extreme.npz"
@@ -982,13 +1024,14 @@ def main():
 	"""
 	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
 	endpoints = None
+	all_OD_trajectories = []
 	filenames = ["9664225.csv"]
 	for i in range(0, len(filenames)):
 		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i])))
-		# writeToCSV.writeDataToCSV(this_vessel_endpoints,"tankers/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
+		writeToCSV.writeDataToCSV(this_vessel_endpoints,"tankers/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
 		print "this_vessel_endpoints.shape:", this_vessel_endpoints.shape	
 		
-		if(endpoints == None):
+		if(endpoints is None):
 			endpoints = this_vessel_endpoints
 		else:
 			endpoints = np.concatenate((endpoints, this_vessel_endpoints), axis=0)
@@ -1004,8 +1047,13 @@ def main():
 			end_ts = this_vessel_endpoints[s + 1][dataDict["ts"]]
 
 			if(end_ts - origin_ts <= 3600 * 24): # if there could be possibly a trajectory between theses two this_vessel_endpoints; Could do a check here or just let the extractAndPlotTrajectories return empty array
-				OD_trajectories, OD_trajectories_lat_lon = extractTrajectoriesUntilOD(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i]), originLatitude, originLongtitude, endLatitude, endLongtitude, show = False, save = True, clean = False, fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
-
+				print "\n\nextracting endpoints between ", s, " and ", s + 1
+				OD_trajectories, OD_trajectories_lat_lon = extractTrajectoriesUntilOD(\
+					writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i]), \
+					origin_ts, originLatitude, originLongtitude, end_ts, endLatitude, endLongtitude, \
+					show = True, save = False, clean = False, \
+					fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1)) # there will be one trajectory between each OD
+				print "number of trajectory points extracted : ", len(OD_trajectories[0])
 				writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[0],"tankers/trajectories", "{filename}_trajectory_endpoint_{s}_to_{e}".format(filename = filenames[i][:filenames[i].find(".")], s = s, e = s + 1))
 
 				"""
@@ -1017,22 +1065,27 @@ def main():
 				Clustering based on pure geographycal trajectory, ignore temporal information
 				"""
 				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
-				geographicalTrajetoryInterpolation(OD_trajectories, filenames[i][:filenames[i].find(".")] + "_interpolated_algo3_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories, filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+				interpolated_OD_trajectories_lat_lon = convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, interpolated_OD_trajectories)
+				if(len(interpolated_OD_trajectories_lat_lon) > 0):
+					all_OD_trajectories.append(interpolated_OD_trajectories_lat_lon[0]) # since one trajectory between each pair of OD
 
-				# raise ValueError("Purpoes Break for first pair of end point")
-	
 	print "Final endpoints.shape:", endpoints.shape
-
+	print "number of all_OD_trajectories:", len(all_OD_trajectories)
+	center_lat_sg = 1.2
+	center_lon_sg = 103.8
+	all_OD_trajectories = convertListOfTrajectoriesToXY(center_lat_sg, center_lon_sg, all_OD_trajectories)
+	plotListOfTrajectories(all_OD_trajectories, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories")
 	
 	# endpoints = np.asarray(extractEndPoints(data))
 	# writeToCSV.writeDataToCSV(endpoints,"tankers/endpoints", "aggregateData_endpoints")
 	# endpoints = writeToCSV.readDataFromCSV("tankers/endpoints", "aggregateData_endpoints.csv")
 	# print endpoints.shape
 	
-	"""
-	Find the trajectories that start near origin (within 500m radius) ;
-	within our observation studtWindowLen and within next timeWindow hours of the start
-	"""
+	# """
+	# Find the trajectories that start near origin (within 500m radius) ;
+	# within our observation studtWindowLen and within next timeWindow hours of the start
+	# """
 	# originLatitude = data[0][dataDict["latitude"]]
 	# originLongtitude = data[0][dataDict["longtitude"]]
 	# originLatitude = 718208/geoScale # for 1000019 only
@@ -1050,10 +1103,6 @@ def main():
 	# # writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[2][185:],"tankers/trajectories", "aggregateData_OD_trajectory_{i}_afterFistHour3600".format(i = 2))
 	# # for i in range(0, len(OD_trajectories_lat_lon)):
 	# 	# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[i],"tankers/trajectories", "aggregateData_OD_trajectory_{i}".format(i = i))
-			
-
-			
-
 
 
 if __name__ == "__main__":
