@@ -1066,15 +1066,16 @@ def main():
 				"""
 				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
 				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories, filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+				# change X, Y coordinate to Lat, Lon
 				interpolated_OD_trajectories_lat_lon = convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, interpolated_OD_trajectories)
 				if(len(interpolated_OD_trajectories_lat_lon) > 0):
-					all_OD_trajectories.append(interpolated_OD_trajectories_lat_lon[0]) # since one trajectory between each pair of OD
+					all_OD_trajectories.append(interpolated_OD_trajectories_lat_lon[0]) # since there should be only one trajectory between each pair of OD
 
 	print "Final endpoints.shape:", endpoints.shape
 	print "number of all_OD_trajectories:", len(all_OD_trajectories)
 	center_lat_sg = 1.2
 	center_lon_sg = 103.8
-	all_OD_trajectories = convertListOfTrajectoriesToXY(center_lat_sg, center_lon_sg, all_OD_trajectories)
+	all_OD_trajectories = convertListOfTrajectoriesToXY(center_lat_sg, center_lon_sg, all_OD_trajectories) # convert Lat, Lon to XY for displaying
 	plotListOfTrajectories(all_OD_trajectories, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories")
 	
 	# endpoints = np.asarray(extractEndPoints(data))
