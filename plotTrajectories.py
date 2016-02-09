@@ -1092,7 +1092,7 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	
 	# Get the optimal number of clusters
 	MIN_NUM_CLUSTER = 2
-	MAX_NUM_CLUSTER = 200
+	MAX_NUM_CLUSTER = 300
 	opt_num_cluster = MIN_NUM_CLUSTER
 	opt_CH_index = MIN_FLOAT
 	opt_cluster_label = None
@@ -1144,7 +1144,7 @@ def main():
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, trajectories_to_cluster) # convert Lat, Lon to XY for displaying
 	opt_cluster_label = clusterTrajectories(all_OD_trajectories_XY, "10_tankers", pathToSave)
 	print "opt_cluster_label:", opt_cluster_label
-	print "opt_num_cluster:", len(set(opt_num_cluster))
+	print "opt_num_cluster:", len(set(opt_cluster_label))
 	# print "distance between 1 and 4, should be quite small:", trajectoryDissimilarityL2(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
 	# print "distance between 0 and 4, should be quite large:", trajectoryDissimilarityL2(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
 	# print "matrix:\n", getTrajectoryDistanceMatrix(all_OD_trajectories_XY, metric_func = trajectoryDissimilarityL2)
