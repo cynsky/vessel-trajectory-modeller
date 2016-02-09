@@ -15,6 +15,11 @@ from collections import OrderedDict
 import writeToCSV
 import copy
 import sys
+import scipy.spatial.distance as DIST
+import scipy.cluster.hierarchy as HAC
+import random
+from sklearn import metrics
+import operator
 
 """
 CONSTANTS
@@ -41,6 +46,11 @@ data_dict_x_y_coordinate = {
 "ts":7
 }
 
+
+CENTER_LAT_SG = 1.2
+
+CENTER_LON_SG = 103.8
+
 geoScale = 600000.0
 
 knotToKmPerhour = 1.85200
@@ -54,6 +64,9 @@ NEIGHBOURHOOD_ORIGIN = 0.1
 STAYTIME_THRESH = 1800 # 1 hour
 
 MAX_FLOAT = sys.float_info.max
+MIN_FLOAT = sys.float_info.min
+
+MAX_DISTANCE_FROM_SG = 100 # 100 km
 
 class Point(object):
 	def __init__(self,_x,_y):
@@ -256,7 +269,7 @@ def plotOneTrajectory(trajectory, show = True, clean = True):
 	if(clean):
 		plt.clf()
 
-def plotListOfTrajectories(trajectories, show = True, clean = True, save = False, fname = ""):
+def plotListOfTrajectories(trajectories, show = True, clean = True, save = False, fname = "", path = "plots"):
 	"""
 	Give a list of trajectories that are already converted into XY plane
 	"""
@@ -265,7 +278,7 @@ def plotListOfTrajectories(trajectories, show = True, clean = True, save = False
 	if(not plt.gca().yaxis_inverted()):
 		plt.gca().invert_yaxis()
 	if(save):
-		plt.savefig("./{path}/{fname}.png".format(path = "plots", fname = fname))
+		plt.savefig("./{path}/{fname}.png".format(path = path, fname = fname))
 	if(show):
 		plt.show()
 	if(clean):
@@ -413,6 +426,7 @@ def interpolateTrajectorypointsGeographical(trajectory,d):
 		plt.gca().invert_yaxis()
 	plt.show()
 
+### Start of Grid Interpolation Approach ### 
 def findGridPointNearestTrajectoryPos(trajectory, grid_x_index, grid_y_index, grid_x, grid_y):
 	x_coord = grid_x[grid_x_index][grid_y_index]
 	y_coord = grid_y[grid_x_index][grid_y_index]
@@ -424,8 +438,6 @@ def findGridPointNearestTrajectoryPos(trajectory, grid_x_index, grid_y_index, gr
 			grid_score = cur_distance_score
 			nearest_pos = k
 	return nearest_pos
-
-
 
 def distanceScore(grid_x, grid_y, x, y):
 	"""
@@ -453,10 +465,11 @@ def createTrajectoryPointRecordWithXY(grid_x_index, grid_y_index, grid_x, grid_y
 def interpolateGeographicalGrid(trajectory):
 	"""
 	Input: trajectory in x, y coordinate
-	return: grid interpolated trajectory (x,y) coordinates, in km (grid), of shape (n,2)
+	return: grid interpolated trajectory (x,y) coordinates, in km (grid), of shape (n,8) with dummy 0 values for features other than (x,y)
 	"""
 	GRID_TO_NEAREST_POS = {}
 
+	"""Get the min_x, min_y, max_x, max_y of the converted coordinates among the trajectory points"""
 	origin = trajectory[0]
 	end = trajectory[len(trajectory) -1]
 	scale = 100
@@ -477,34 +490,21 @@ def interpolateGeographicalGrid(trajectory):
 			min_y = y
 	print "check min_x, max_x, min_y, max_y:", min_x, max_x, min_y, max_y
 	grid_x, grid_y = np.mgrid[min_x:max_x:complex(0,scale), min_y:max_y:complex(0, scale)]
-	# grid_x, grid_y = np.mgrid[0:19:complex(0,scale), 0:19:complex(0,scale)]
-	print grid_x.shape
-	print grid_y.shape
-	# for i in range(0, scale):
-		# for j in range(0, scale):
-			# print "gird[{i},{j}]'s coordinate".format(i = i, j = j), " = (", grid_x[i][j], " , " , grid_y[i][j], ")"
 	grid_score = np.zeros(shape = (scale, scale)) # the distance score, the smaller, the better
 
-	print "set up complexity: ", scale*scale, " * ", len(trajectory)
+	
 	"""Set up the scores for the grid"""
+	print "set up complexity: ", scale*scale, " * ", len(trajectory)
 	for i in range(0, scale):
 		for j in range(0, scale):
-			# print "checking grid point ", grid_x[i][j], ",", grid_y[i][j], ": first data point: ", trajectory[0][data_dict_x_y_coordinate["x"]], ",", trajectory[0][data_dict_x_y_coordinate["y"]]
 			grid_score[i][j] = distanceScore(grid_x[i][j], grid_y[i][j], trajectory[0][data_dict_x_y_coordinate["x"]], trajectory[0][data_dict_x_y_coordinate["y"]])
-			# print "checking grid point ", grid_x[i][j], ",", grid_y[i][j], ": initial distance = ", grid_score[i][j]
 			nearest_pos = 0
 			for k in range(1, len(trajectory)):
 				cur_distance_score = distanceScore(grid_x[i][j], grid_y[i][j], trajectory[k][data_dict_x_y_coordinate["x"]], trajectory[k][data_dict_x_y_coordinate["y"]])
 				if(cur_distance_score < grid_score[i][j]):
 					grid_score[i][j] = cur_distance_score
 					nearest_pos = k
-			# print "nearest pos for grid point ", grid_x[i][j], ",", grid_y[i][j], " is ", nearest_pos
 			GRID_TO_NEAREST_POS["{i}_{j}".format(i =i , j = j)] = nearest_pos
-
-	# print "GRID_TO_NEAREST_POS:\n",GRID_TO_NEAREST_POS
-	# for key, value in GRID_TO_NEAREST_POS.iteritems():
-	# 	print key,":", value
-
 	print "grid_score set up done!"
 
 	"""traverse the grid to get best approximate path of the trajectory"""
@@ -665,19 +665,6 @@ def interpolateGeographicalGrid(trajectory):
 							this_option_score = MAX_FLOAT
 						else:
 							this_option_score = grid_score[i][j]
-							# visited[i][j] = 1 # mark as visited
-						
-						
-						# if(pos == 16 and this_option_score!= MAX_FLOAT):
-							# print "check grid:", grid_x[i][j], ",", grid_y[i][j], ", score:", this_option_score, "; corresponds: ", GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)]
-
-						# if(next_grid_x == None and next_grid_y == None): # if first valid score, just assign
-						# 	next_score = this_option_score
-						# 	next_grid_x = i
-						# 	next_grid_y = j
-						# elif((this_option_score < next_score and \
-						# 	GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] >= GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)]) or \
-						# 	GRID_TO_NEAREST_POS["{i}_{j}".format(i = i, j = j)] > GRID_TO_NEAREST_POS["{i}_{j}".format(i = next_grid_x, j = next_grid_y)]):
 						if(this_option_score < next_score): # update next_score, next_grid_x, next_grid_y if score smaller
 							next_score = this_option_score
 							next_grid_x = i
@@ -687,8 +674,6 @@ def interpolateGeographicalGrid(trajectory):
 			if(next_score == MAX_FLOAT):
 				break; # still max float, can not populate anymore
 			else:
-				# if(pos == 16):
-					# print "end of evaluation for neighours"
 				visited[next_grid_x][next_grid_y] = 1
 				interpolated_trajectory.append(createTrajectoryPointRecordWithXY(next_grid_x, next_grid_y, grid_x, grid_y)) # append to result
 				cur_grid_x = next_grid_x
@@ -700,16 +685,14 @@ def interpolateGeographicalGrid(trajectory):
 	print "len(interpolated_trajectory):", len(interpolated_trajectory)
 	return np.asarray(interpolated_trajectory)
 
-def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate, fname = ""):
+def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate):
 	# d = 0.1 # take a point every 100 metre
 
 	interpolated_trajectories_x_y_coordinate = []
 	for i in range(0, len(trajectories_x_y_coordinate)):
 		# interpolated_trajectories_x_y_coordinate.append(interpolateTrajectorypointsGeographical(trajectories_x_y_coordinate[i],d))
 		interpolated_trajectories_x_y_coordinate.append(interpolateGeographicalGrid(trajectories_x_y_coordinate[i]))
-	# print interpolated_trajectories_x_y_coordinate
-	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape	
-	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate, show = False, clean = True, save = fname!= "", fname = fname)
+	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape
 	return interpolated_trajectories_x_y_coordinate
 
 
@@ -803,12 +786,6 @@ def extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitu
 
 		for j in range(0, len(trajectories[i])):
 			x, y = LatLonToXY(originLatitude, originLongtitude, trajectories[i][j][dataDict["latitude"]], trajectories[i][j][dataDict["longtitude"]])
-			# if(j >= 1):
-			# 	dx, dy = LatLonToXY(trajectories[i][j-1][dataDict["latitude"]], trajectories[i][j-1][dataDict["longtitude"]] , trajectories[i][j][dataDict["latitude"]], trajectories[i][j][dataDict["longtitude"]])
-			# 	dt = trajectories[i][j][dataDict["ts"]] - trajectories[i][j-1][dataDict["ts"]]
-			# 	print "dt:", dt, "prevSpeed:", trajectories[i][j-1][dataDict["speed_over_ground"]]*knotToKmPerhour, "cur Speed:", trajectories[i][j][dataDict["speed_over_ground"]]*knotToKmPerhour, "d_distance:",np.linalg.norm([dx,dy], 2), "< allowed?:", (True if (max(trajectories[i][j-1][dataDict["speed_over_ground"]]*knotToKmPerhour, trajectories[i][j][dataDict["speed_over_ground"]]*knotToKmPerhour) == 0) else np.linalg.norm([dx,dy], 2)< max(trajectories[i][j-1][dataDict["speed_over_ground"]]*knotToKmPerhour, trajectories[i][j][dataDict["speed_over_ground"]]*knotToKmPerhour) * dt/3600.0)
-			# print trajectories[i][j][dataDict["latitude"]], trajectories[i][j][dataDict["longtitude"]], trajectories[i][j][dataDict["ts"]]
-			# print x , y, trajectories[i][j][dataDict["ts"]], datetime.datetime.fromtimestamp(trajectories[i][j][dataDict["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ')
 			totalCoordinates.append([x,y])
 			thisTrajectoryCoordinates.append([x,y])
 			trajectories_x_y_coordinate[i][j][data_dict_x_y_coordinate['y']] = y # y corresponds to latitude value
@@ -817,41 +794,22 @@ def extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitu
 		thisTrajectoryCoordinates = np.asarray(thisTrajectoryCoordinates)
 		
 		plt.plot(thisTrajectoryCoordinates[0:len(thisTrajectoryCoordinates),0], thisTrajectoryCoordinates[0:len(thisTrajectoryCoordinates),1])
-		
-		# plt.plot(thisTrajectoryCoordinates[0:50,0], thisTrajectoryCoordinates[0:50,1])
-		# print np.linalg.norm([[thisTrajectoryCoordinates[0,0],thisTrajectoryCoordinates[0,1]], [thisTrajectoryCoordinates[1,0],thisTrajectoryCoordinates[1,1]]])
-		# # print "x:\n", thisTrajectoryCoordinates[0:len(thisTrajectoryCoordinates),0]
-		# for k in range(0, 50):
-		# 	print "x:", thisTrajectoryCoordinates[k][0], ", time:",datetime.datetime.fromtimestamp(trajectories[i][k][data_dict_x_y_coordinate["ts"]]).strftime('%Y-%m-%dT%H:%M:%SZ'), ", speed:", trajectories_x_y_coordinate[i][k][data_dict_x_y_coordinate['speed_over_ground']]
-		# plt.gca().invert_yaxis()
-		# plt.show()
-		# raise ValueError("purpose stop")
 
 	totalCoordinates = np.asarray(totalCoordinates)
 	print "totalCoordinates.shape:", totalCoordinates.shape
-	# print totalCoordinates
-	# plt.scatter(totalCoordinates[0:len(totalCoordinates),0], totalCoordinates[0:len(totalCoordinates),1])
-	# plt.plot(totalCoordinates[0:len(totalCoordinates),0], totalCoordinates[0:len(totalCoordinates),1])
 	plt.gca().invert_yaxis()
 	# plt.savefig("{p}/{i}x{i}km_studywindow_{t}_timewindow_{f}_origin_{lat}_{lon}_trajectories.png".format(p = pathToSave, t = timeWindow, i = studyWindowLen, f = filename[0:filename.find(".")], lat = originLatitude, lon = originLongtitude))
 	if(show):
 		plt.show()
 
 	OD_trajectories_lat_lon = copy.deepcopy(OD_trajectories)
-	# print "OD_trajectories_lat_lon[0][0]:",OD_trajectories_lat_lon[0][0]
 	#Set X,Y coordinate for the OD_trajectories
 	for i in range(0, len(OD_trajectories)):
 		for j in range(0, len(OD_trajectories[i])):
 			x, y = LatLonToXY(originLatitude, originLongtitude, OD_trajectories[i][j][dataDict["latitude"]], OD_trajectories[i][j][dataDict["longtitude"]])
 			OD_trajectories[i][j][data_dict_x_y_coordinate["y"]] = y
 			OD_trajectories[i][j][data_dict_x_y_coordinate["x"]] = x
-	
-		# plt.plot(OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["x"]], OD_trajectories[i][0:len(OD_trajectories[i]),data_dict_x_y_coordinate["y"]])
-	# plt.gca().invert_yaxis()
-	# plt.show()
 
-	# print "OD_trajectories_lat_lon[0][0]:",OD_trajectories_lat_lon[0][0]
-	# print "OD_trajectories[0][0]:",OD_trajectories[0][0]
 	return trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon
 
 def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
@@ -993,6 +951,172 @@ def convertListOfTrajectoriesToXY(originLatitude, originLongtitude, listOfTrajec
 			listOfTrajectories[i][j][data_dict_x_y_coordinate["x"]] = x
 	return listOfTrajectories
 
+def isErrorTrajectory(trajectory, center_lat_sg, center_lon_sg):
+	"""
+	Checks if the give trajectory is too far from the Port Center
+	"""
+	for i in range(0, len(trajectory)):
+		dx, dy = LatLonToXY (trajectory[i][dataDict["latitude"]],trajectory[i][dataDict["longtitude"]],center_lat_sg, center_lon_sg)
+		if(np.linalg.norm([dx, dy], 2) > MAX_DISTANCE_FROM_SG):
+			return True
+	return False
+
+def removeErrorTrajectoryFromList(trajectories, center_lat_sg = 1.2, center_lon_sg = 103.8):
+	"""
+	trajectories: normal trajectories with lat and lon
+	return: the list of trajectories with error ones removed
+	"""
+	i = 0
+	while(i < len(trajectories)):
+		if(isErrorTrajectory(trajectories[i], center_lat_sg, center_lon_sg)):
+			if(isinstance(trajectories, list)): # if list, call the list's delete method
+				trajectories.pop(i)
+			elif(isinstance(trajectories, np.ndarray)): # if numpy.ndarray, call its delete method
+				trajectories = np.delete(trajectories, i, 0)
+		else:
+			i += 1
+	return trajectories
+
+def clusterPurity(groundTruth, clusterLabel, n_cluster):
+	purity = np.zeros(n_cluster)
+	startingLabel = min(clusterLabel)
+	for index in range(startingLabel,startingLabel+n_cluster):
+		true_label_distribution = groundTruth[clusterLabel == index]
+		mode,modeArr= findMode(true_label_distribution)
+		purity[index - startingLabel] = float(mode)/len(true_label_distribution)
+	return purity
+
+def trajectoryDissimilarityL2(t1, t2):
+	i = 0
+	j = 0
+	dissimilarity = 0.0
+	while(i < len(t1) and j < len(t2)):
+		dissimilarity += DIST.euclidean(t1[i], t2[j])
+		i += 1
+		j += 1
+	# only one of the following loops will be entered
+	while(i < len(t1)):
+		dissimilarity += DIST.euclidean(t1[i], t2[j - 1]) # j -1 to get the last point in t2
+		i += 1
+
+	while(j < len(t2)):
+		dissimilarity += DIST.euclidean(t1[i - 1], t2[j])
+		j += 1
+	return dissimilarity
+
+def withinClassVariation(class_trajectories, distance_matrix, metric_func):
+	"""
+	class_trajectories: the trajectories within this one class
+	return: W for one class only
+	"""
+	mean = getMeanTrajecotoryWithinClass(class_trajectories)
+	variation = 0
+	for i in range(0,len(class_trajectories)):
+		variation += metric_func(class_trajectories[i], mean)
+	return variation
+
+def betweenClassVariation(class_trajectories_dict, distance_matrix, metric_func):
+	class_centroids = []
+	for class_label, trajectories in class_trajectories_dict.iteritems():
+		class_centroids.append(getMeanTrajecotoryWithinClass(trajectories))
+	between_class_mean = getMeanTrajecotoryWithinClass(class_centroids) # get the mean of the class centroids of different clusters
+	variation = 0
+	class_weights = np.ones(len(class_centroids))
+	for i in range(0, len(class_centroids)):
+		variation += metric_func(class_centroids[i], between_class_mean) * class_weights[i] # here assume uniform weights among all classes
+	return variation
+
+def CHIndex(cluster_label, distance_matrix, data, metric_func = trajectoryDissimilarityL2):
+	"""
+	cluster_label: length n
+	distance_matrix: shape (n, n)
+	data: length n
+	returns: CH(K) = ( B(K)/(k-1) )/( W(k)/(n-k) ), where K is number of clusters
+	"""
+	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
+	class_trajectories_dict = {} # a dictionary of class lable to its cluster
+	for i in range(0, len(cluster_label)):
+		class_label = cluster_label[i]
+		if(not class_label in class_trajectories_dict):
+			class_trajectories_dict[class_label] = []
+		class_trajectories_dict[class_label].append(data[i])
+	W = 0 # within class variation, summed over classes
+	for class_label, trajectories in class_trajectories_dict.iteritems():
+		W += withinClassVariation(trajectories, distance_matrix, metric_func) # get the W for one class
+	B = betweenClassVariation(class_trajectories_dict, distance_matrix, metric_func) # between class variation
+	K = len(set(cluster_label))
+	n = len(data)
+
+	return  (B/ (K-1))/(W/(n - K))
+
+def getMeanTrajecotoryPointAtIndex(trajectories, index):
+	mean = np.zeros(len(data_dict_x_y_coordinate))
+	count = 0
+	for i in range(0, len(trajectories)):
+		if(index < len(trajectories[i])):
+			mean += np.asarray(trajectories[i][index])
+			count += 1
+	if(count != 0):
+		mean = mean/count
+	return mean
+
+def getMeanTrajecotoryWithinClass(class_trajectories):
+	max_length_index, max_length = max(enumerate([len(t) for t in class_trajectories]), key = operator.itemgetter(1))
+	mean_trajectory = np.zeros(shape = (max_length, len(data_dict_x_y_coordinate)))
+	for i in range(0, max_length):
+		mean_trajectory[i] = getMeanTrajecotoryPointAtIndex(class_trajectories, i)
+	return mean_trajectory
+
+def getTrajectoryDistanceMatrix(trajectories, metric_func = trajectoryDissimilarityL2):
+	n = len(trajectories)
+	distance_matrix = np.zeros(shape = (n,n))
+	for i in range(0, n):
+		distance_matrix[i][i] = 0.0
+		for j in range(i+1, n):
+			distance_matrix[i][j] = metric_func(trajectories[i], trajectories[j])
+			distance_matrix[j][i] = distance_matrix[i][j]
+	return distance_matrix
+			
+def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2):
+	"""
+	trajectories: the trajectories better to be in XY coordinates
+	"""
+	distance_matrix = getTrajectoryDistanceMatrix(trajectories, metric_func)
+	print "distance_matrix:\n", distance_matrix
+	v = DIST.squareform(distance_matrix)
+	cluster_result = HAC.linkage(v, method = "average")
+	dg = HAC.dendrogram(cluster_result)
+	plt.xlabel("cluster_dengrogram_{fname}".format(fname = fname))
+	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = path))
+	plt.show()
+	
+	# Get the optimal number of clusters
+	MIN_NUM_CLUSTER = 2
+	MAX_NUM_CLUSTER = 200
+	opt_num_cluster = MIN_NUM_CLUSTER
+	opt_CH_index = MIN_FLOAT
+	opt_cluster_label = None
+
+	CH_indexes = []
+	cluster_labels = []
+	for i in range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER):
+		this_cluster_label = HAC.fcluster(Z= cluster_result, t= i,criterion='maxclust')
+		this_CH_index = CHIndex(this_cluster_label, distance_matrix, trajectories, metric_func)
+		CH_indexes.append(this_CH_index)
+		cluster_labels.append(this_cluster_label)
+		if(this_CH_index > opt_CH_index):
+			opt_CH_index = this_CH_index
+			opt_num_cluster = i
+			opt_cluster_label = this_cluster_label
+		print "\nHAC Cluster label:\n", this_cluster_label
+		print "number of labels by HAC:", len(set(this_cluster_label)), ";starting label is:", min(this_cluster_label)
+		print "n_clusters				CH index"
+		print i,"				", this_CH_index 
+
+	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), CH_indexes)
+	plt.xlabel("CH_indexes range plot")
+	plt.show()
+	return opt_cluster_label
 
 def main():
 	# originLongtitude = 62245670/geoScale
@@ -1007,9 +1131,26 @@ def main():
 	# pathToSave = "cleanedData/graphs"
 	path = "tankers/cleanedData"
 	pathToSave = "tankersGraph"
-
 	data = 	loadArray("{p}/{f}".format(p = path, f=filename))
-	# print data.shape
+	root_folder = "tankers"
+
+	"""
+	Test Clustering
+	"""
+	trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories.npz")
+	print type(trajectories_to_cluster)
+	print len(trajectories_to_cluster)
+	trajectories_to_cluster = list(trajectories_to_cluster)
+	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, trajectories_to_cluster) # convert Lat, Lon to XY for displaying
+	opt_cluster_label = clusterTrajectories(all_OD_trajectories_XY, "10_tankers", pathToSave)
+	print "opt_cluster_label:", opt_cluster_label
+	print "opt_num_cluster:", len(set(opt_num_cluster))
+	# print "distance between 1 and 4, should be quite small:", trajectoryDissimilarityL2(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
+	# print "distance between 0 and 4, should be quite large:", trajectoryDissimilarityL2(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
+	# print "matrix:\n", getTrajectoryDistanceMatrix(all_OD_trajectories_XY, metric_func = trajectoryDissimilarityL2)
+	# plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "") # TODO: remove error trajectories that are too far from Singapore
+	raise ValueError("purpose stop of the testing clustering procedure")
+
 
 	"""
 	plot out the value space of the features, speed, accelerations, etc
@@ -1019,18 +1160,19 @@ def main():
 
 
 	"""
-	Extract endpoints; TODO: further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
-	TODO: Extract end points vessel by vessel; Do not do the check on duplicated endpoints
+	Extract endpoints;
+	TODO: Further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
 	"""
-	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
 	endpoints = None
 	all_OD_trajectories = []
-	filenames = ["9664225.csv"]
+	# filenames = ["9664225.csv"]
 	for i in range(0, len(filenames)):
-		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i])))
-		writeToCSV.writeDataToCSV(this_vessel_endpoints,"tankers/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
+		# Extract end points
+		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSV(root_folder + "/cleanedData", filenames[i])))
+		# writeToCSV.writeDataToCSV(this_vessel_endpoints,root_folder + "/endpoints", "{filename}_endpoints".format(filename = filenames[i]))
 		print "this_vessel_endpoints.shape:", this_vessel_endpoints.shape	
-		
+		# Append to the total end points
 		if(endpoints is None):
 			endpoints = this_vessel_endpoints
 		else:
@@ -1045,38 +1187,42 @@ def main():
 			endLatitude = this_vessel_endpoints[s + 1][dataDict["latitude"]]
 			endLongtitude = this_vessel_endpoints[s + 1][dataDict["longtitude"]]	
 			end_ts = this_vessel_endpoints[s + 1][dataDict["ts"]]
-
-			if(end_ts - origin_ts <= 3600 * 24): # if there could be possibly a trajectory between theses two this_vessel_endpoints; Could do a check here or just let the extractAndPlotTrajectories return empty array
+			# if there could be possibly a trajectory between theses two this_vessel_endpoints; 
+			# Could do a check here or just let the extractAndPlotTrajectories return empty array
+			if(end_ts - origin_ts <= 3600 * 24):
+				"""Extracting trajectory between a pair of OD"""
 				print "\n\nextracting endpoints between ", s, " and ", s + 1
 				OD_trajectories, OD_trajectories_lat_lon = extractTrajectoriesUntilOD(\
-					writeToCSV.readDataFromCSV("tankers/cleanedData", filenames[i]), \
+					writeToCSV.readDataFromCSV(root_folder + "/cleanedData", filenames[i]), \
 					origin_ts, originLatitude, originLongtitude, end_ts, endLatitude, endLongtitude, \
-					show = True, save = False, clean = False, \
-					fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1)) # there will be one trajectory between each OD
+					show = False, save = False, clean = True, \
+					fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1)) # there will be one trajectory between each OD		
 				print "number of trajectory points extracted : ", len(OD_trajectories[0])
-				writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[0],"tankers/trajectories", "{filename}_trajectory_endpoint_{s}_to_{e}".format(filename = filenames[i][:filenames[i].find(".")], s = s, e = s + 1))
+				# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[0],root_folder + "/trajectories", "{filename}_trajectory_endpoint_{s}_to_{e}".format(filename = filenames[i][:filenames[i].find(".")], s = s, e = s + 1))
 
 				"""
-				Clutering based on temporal information based trajectory, need to only consider trajectories between nicely found O-D
+				Interpolation based on temporal information based trajectory, need to only consider trajectories between nicely found O-D
 				"""
 				# temporalTrajectoryInterpolation(OD_trajectories)
 
 				"""
-				Clustering based on pure geographycal trajectory, ignore temporal information
+				Interpolation based on pure geographycal trajectory, ignore temporal information
 				"""
 				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
-				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories, filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories)
+				# plotListOfTrajectories(interpolated_OD_trajectories, show = False, clean = True, save = True, fname = filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
 				# change X, Y coordinate to Lat, Lon
 				interpolated_OD_trajectories_lat_lon = convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, interpolated_OD_trajectories)
 				if(len(interpolated_OD_trajectories_lat_lon) > 0):
 					all_OD_trajectories.append(interpolated_OD_trajectories_lat_lon[0]) # since there should be only one trajectory between each pair of OD
 
+	assert (not endpoints is None), "No endpoints extracted from the historial data"
 	print "Final endpoints.shape:", endpoints.shape
-	print "number of all_OD_trajectories:", len(all_OD_trajectories)
-	center_lat_sg = 1.2
-	center_lon_sg = 103.8
-	all_OD_trajectories = convertListOfTrajectoriesToXY(center_lat_sg, center_lon_sg, all_OD_trajectories) # convert Lat, Lon to XY for displaying
-	plotListOfTrajectories(all_OD_trajectories, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories")
+	print "number of interpolated all_OD_trajectories:", len(all_OD_trajectories)
+	writeToCSV.saveData(removeErrorTrajectoryFromList(all_OD_trajectories), root_folder + "/all_OD_trajectories")
+
+	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, all_OD_trajectories) # convert Lat, Lon to XY for displaying
+	plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories") # TODO: remove error trajectories that are too far from Singapore
 	
 	# endpoints = np.asarray(extractEndPoints(data))
 	# writeToCSV.writeDataToCSV(endpoints,"tankers/endpoints", "aggregateData_endpoints")
@@ -1098,7 +1244,6 @@ def main():
 	# endLatitude = 1.237067419175662 # test for aggregateData
 	# endLongtitude = 103.79633903503418 # test for aggregateData
 
-	
 	# trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon= extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitude, endLongtitude)
 	# # plotListOfTrajectories(OD_trajectories,True, True)
 	# # writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[2][185:],"tankers/trajectories", "aggregateData_OD_trajectory_{i}_afterFistHour3600".format(i = 2))

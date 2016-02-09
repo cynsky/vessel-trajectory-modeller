@@ -4,6 +4,13 @@ import matplotlib.pyplot as plt
 import datetime
 import csv
 
+def saveData(data, filename):
+	np.savez(filename,data = data)
+
+def loadData(filename):
+	loader = np.load(filename)
+	return loader['data']
+
 def writeNpzToCSV(path, npz_file_name):
 	data = readCSV.loadArray(path +"/"+ npz_file_name)
 	print data.shape
