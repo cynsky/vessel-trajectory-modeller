@@ -64,7 +64,6 @@ NEIGHBOURHOOD_ORIGIN = 0.1
 STAYTIME_THRESH = 1800 # 1 hour
 
 MAX_FLOAT = sys.float_info.max
-MIN_FLOAT = sys.float_info.min
 
 MAX_DISTANCE_FROM_SG = 100 # 100 km
 
@@ -1047,7 +1046,7 @@ def CHIndex(cluster_label, distance_matrix, data, metric_func = trajectoryDissim
 	K = len(set(cluster_label))
 	n = len(data)
 
-	return  (B/ (K-1))/(W/(n - K))
+	return  (B/ (K-1))/(W/(n - K)), B, W
 
 def getMeanTrajecotoryPointAtIndex(trajectories, index):
 	mean = np.zeros(len(data_dict_x_y_coordinate))
@@ -1083,6 +1082,7 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	"""
 	distance_matrix = getTrajectoryDistanceMatrix(trajectories, metric_func)
 	print "distance_matrix:\n", distance_matrix
+	writeToCSV.saveData(distance_matrix, "tankers/all_OD_trajectories_distance_matrix_l2")
 	v = DIST.squareform(distance_matrix)
 	cluster_result = HAC.linkage(v, method = "average")
 	dg = HAC.dendrogram(cluster_result)
@@ -1094,16 +1094,23 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	MIN_NUM_CLUSTER = 2
 	MAX_NUM_CLUSTER = 300
 	opt_num_cluster = MIN_NUM_CLUSTER
-	opt_CH_index = MIN_FLOAT
+	opt_CH_index = -1
 	opt_cluster_label = None
 
 	CH_indexes = []
 	cluster_labels = []
+	between_cluster_scatterness = []
+	within_cluster_scatterness = []
+
 	for i in range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER):
 		this_cluster_label = HAC.fcluster(Z= cluster_result, t= i,criterion='maxclust')
-		this_CH_index = CHIndex(this_cluster_label, distance_matrix, trajectories, metric_func)
+		this_CH_index, B, W = CHIndex(this_cluster_label, distance_matrix, trajectories, metric_func)
+		
 		CH_indexes.append(this_CH_index)
+		between_cluster_scatterness.append(B)
+		within_cluster_scatterness.append(W)
 		cluster_labels.append(this_cluster_label)
+		
 		if(this_CH_index > opt_CH_index):
 			opt_CH_index = this_CH_index
 			opt_num_cluster = i
@@ -1116,7 +1123,13 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), CH_indexes)
 	plt.xlabel("CH_indexes range plot")
 	plt.show()
-	return opt_cluster_label
+
+	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), between_cluster_scatterness, label = "B")
+	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), within_cluster_scatterness, label = "W")
+	plt.legend()
+	plt.show()
+	
+	return opt_cluster_label, cluster_labels, CH_indexes
 
 def main():
 	# originLongtitude = 62245670/geoScale
@@ -1142,9 +1155,11 @@ def main():
 	print len(trajectories_to_cluster)
 	trajectories_to_cluster = list(trajectories_to_cluster)
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, trajectories_to_cluster) # convert Lat, Lon to XY for displaying
-	opt_cluster_label = clusterTrajectories(all_OD_trajectories_XY, "10_tankers", pathToSave)
+	opt_cluster_label , cluster_labels, CH_indexes = clusterTrajectories(all_OD_trajectories_XY, "10_tankers", pathToSave)
+	writeToCSV.saveData(cluster_labels, root_folder + "/" + "all_OD_trajectories_cluster_labels")
 	print "opt_cluster_label:", opt_cluster_label
 	print "opt_num_cluster:", len(set(opt_cluster_label))
+
 	# print "distance between 1 and 4, should be quite small:", trajectoryDissimilarityL2(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
 	# print "distance between 0 and 4, should be quite large:", trajectoryDissimilarityL2(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
 	# print "matrix:\n", getTrajectoryDistanceMatrix(all_OD_trajectories_XY, metric_func = trajectoryDissimilarityL2)
