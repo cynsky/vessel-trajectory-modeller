@@ -152,7 +152,7 @@ def main():
 		saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
 	
 	print "aggregateData.shape:", aggregateData.shape
-	saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
+	# saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
 	writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
 	# xy_coordinate = [item[3:5] for item in data]
 	# xy_coordinate = np.asarray(xy_coordinate)
