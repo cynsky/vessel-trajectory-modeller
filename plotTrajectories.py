@@ -20,6 +20,7 @@ import scipy.cluster.hierarchy as HAC
 import random
 from sklearn import metrics
 import operator
+import utils
 
 """
 CONSTANTS
@@ -952,8 +953,11 @@ def convertListOfTrajectoriesToXY(originLatitude, originLongtitude, listOfTrajec
 
 def isErrorTrajectory(trajectory, center_lat_sg, center_lon_sg):
 	"""
-	Checks if the give trajectory is too far from the Port Center
+	Checks if the give trajectory is too far from the Port Center, or only contains less than one trajectory point
 	"""
+	if(len(trajectory) <= 1):
+		return True
+
 	for i in range(0, len(trajectory)):
 		dx, dy = LatLonToXY (trajectory[i][dataDict["latitude"]],trajectory[i][dataDict["longtitude"]],center_lat_sg, center_lon_sg)
 		if(np.linalg.norm([dx, dy], 2) > MAX_DISTANCE_FROM_SG):
@@ -986,22 +990,102 @@ def clusterPurity(groundTruth, clusterLabel, n_cluster):
 	return purity
 
 def trajectoryDissimilarityL2(t1, t2):
+	"""
+	t1, t2 are two trajectories in X, Y coordinates;
+	return the l2 distance between the x, y position of the two trajectory;
+	"""
 	i = 0
 	j = 0
 	dissimilarity = 0.0
 	while(i < len(t1) and j < len(t2)):
-		dissimilarity += DIST.euclidean(t1[i], t2[j])
+		dissimilarity += DIST.euclidean([t1[i][data_dict_x_y_coordinate["x"]] ,t1[i][data_dict_x_y_coordinate["y"]]], \
+			[t2[j][data_dict_x_y_coordinate["x"]], t2[j][data_dict_x_y_coordinate["y"]]])
 		i += 1
 		j += 1
 	# only one of the following loops will be entered
 	while(i < len(t1)):
-		dissimilarity += DIST.euclidean(t1[i], t2[j - 1]) # j -1 to get the last point in t2
+		dissimilarity += DIST.euclidean([t1[i][data_dict_x_y_coordinate["x"]], t1[i][data_dict_x_y_coordinate["y"]]], \
+		[t2[j - 1][data_dict_x_y_coordinate["x"]], t2[j - 1][data_dict_x_y_coordinate["y"]]]) # j -1 to get the last point in t2
 		i += 1
 
 	while(j < len(t2)):
-		dissimilarity += DIST.euclidean(t1[i - 1], t2[j])
+		dissimilarity += DIST.euclidean([t1[i - 1][data_dict_x_y_coordinate["x"]], t1[i - 1][data_dict_x_y_coordinate["y"]]], \
+			[t2[j][data_dict_x_y_coordinate["x"]], t2[j][data_dict_x_y_coordinate["y"]]])
 		j += 1
 	return dissimilarity
+
+def getTrajectoryCenterofMass(t):
+	"""
+	t: trajectory in X, Y coordinates
+	return the center of mass of trajectory t
+	"""
+	t = np.asarray(t) # make it a np array
+	center_x = np.mean(t[:, data_dict_x_y_coordinate["x"]])
+	center_y = np.mean(t[:, data_dict_x_y_coordinate["y"]])
+	return np.asarray([center_x, center_y])
+
+
+def distanceBetweenTwoTrajectoryPoint(p1, p2):
+	"""
+	p1, p2 are in X, Y coordinates
+	return the l2 distance between theses two points' x, y geographical coordinates
+	"""
+
+	return DIST.euclidean( \
+		[p1[data_dict_x_y_coordinate["x"]], p1[data_dict_x_y_coordinate["y"]]], \
+		[p2[data_dict_x_y_coordinate["x"]], p2[data_dict_x_y_coordinate["y"]]])
+
+def getTrajectoryLength(t):
+	"""
+	t: trajectory in X, Y coordinates
+	return the sum of length of the trajectory
+	"""
+	distance = 0.0
+	cur_pos = t[0]
+	for i in range(1, len(t)):
+		next_pos = t[i]
+		distance += distanceBetweenTwoTrajectoryPoint(cur_pos, next_pos)
+		cur_pos = next_pos # forward current position
+
+	return distance
+
+def getTrajectoryDisplacement(t):
+	"""
+	t: trajectory in X,Y coordinates
+	return the (dx,dy) as displacement of the trajectory t
+	"""
+	return np.asarray([ \
+		t[len(t) - 1][data_dict_x_y_coordinate["x"]] - t[0][data_dict_x_y_coordinate["x"]], \
+		t[len(t) - 1][data_dict_x_y_coordinate["y"]] - t[0][data_dict_x_y_coordinate["y"]]
+		])
+
+def trajectoryDissimilarityCenterMass (t1, t2):
+	"""
+	t1 and t2: trajectory in X, Y coordinates
+	return: the dissimilarity between these two trajectories using center of mass, trajectory length and trajectory displacement
+	"""
+	center_mass_t1 = getTrajectoryCenterofMass(t1)
+	center_mass_t2 = getTrajectoryCenterofMass(t2)
+
+	s1 = getTrajectoryDisplacement(t1)
+	s2 = getTrajectoryDisplacement(t2)
+	s1_norm = np.linalg.norm(s1, 2)
+	s2_norm = np.linalg.norm(s2, 2)
+
+	if(s1_norm == 0 and s2_norm == 0):
+		cosine_dist = 0.0 # min of DIST.cosine
+	elif(s1_norm == 0 or s2_norm == 0):
+		cosine_dist = 2.0 # max of DIST.cosine
+	else:
+		cosine_dist = DIST.cosine(s1,s2)
+
+	len_t1 = getTrajectoryLength(t1)
+	len_t2 = getTrajectoryLength(t2)
+
+	ctr_dist = DIST.euclidean(center_mass_t1, center_mass_t2)
+
+	return  ctr_dist + ctr_dist * (abs(len_t1 - len_t2) / max(len_t1, len_t2)) if (max(len_t1, len_t2) > 0) else 0 + np.average([s1_norm, s2_norm]) * cosine_dist
+
 
 def withinClassVariation(class_trajectories, distance_matrix, metric_func):
 	"""
@@ -1032,13 +1116,7 @@ def CHIndex(cluster_label, distance_matrix, data, metric_func = trajectoryDissim
 	data: length n
 	returns: CH(K) = ( B(K)/(k-1) )/( W(k)/(n-k) ), where K is number of clusters
 	"""
-	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
-	class_trajectories_dict = {} # a dictionary of class lable to its cluster
-	for i in range(0, len(cluster_label)):
-		class_label = cluster_label[i]
-		if(not class_label in class_trajectories_dict):
-			class_trajectories_dict[class_label] = []
-		class_trajectories_dict[class_label].append(data[i])
+	class_trajectories_dict = formClassTrajectoriesDict(cluster_label, data)
 	W = 0 # within class variation, summed over classes
 	for class_label, trajectories in class_trajectories_dict.iteritems():
 		W += withinClassVariation(trajectories, distance_matrix, metric_func) # get the W for one class
@@ -1048,7 +1126,40 @@ def CHIndex(cluster_label, distance_matrix, data, metric_func = trajectoryDissim
 
 	return  (B/ (K-1))/(W/(n - K)), B, W
 
+def formClassTrajectoriesDict(cluster_label, data):
+	"""
+	cluster_label: length n
+	data: length n
+	returns: a dictionary of [cluster_label: [trajectories]]
+	"""
+	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
+	class_trajectories_dict = {} # a dictionary of class label to its cluster
+	for i in range(0, len(cluster_label)):
+		class_label = cluster_label[i]
+		if(not class_label in class_trajectories_dict):
+			class_trajectories_dict[class_label] = []
+		class_trajectories_dict[class_label].append(data[i])
+	return class_trajectories_dict
+
+def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = ""):
+	"""
+	cluster_label: length n
+	data: length n, needs to be in X, Y coordinate
+	plots the cluster centroids of the current clustering
+	"""
+	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
+	class_trajectories_dict = formClassTrajectoriesDict(cluster_label, data)
+	centroids = []
+	for class_label, trajectories in class_trajectories_dict.iteritems():
+		centroids.append(getMeanTrajecotoryWithinClass(trajectories))
+	plotListOfTrajectories(centroids, show = False, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
+
 def getMeanTrajecotoryPointAtIndex(trajectories, index):
+	"""
+	trajectories: a list of trajectories
+	index: a position on one trajectory
+	returns: the mean trajectory point at the given position across all trajectories in the given list
+	"""
 	mean = np.zeros(len(data_dict_x_y_coordinate))
 	count = 0
 	for i in range(0, len(trajectories)):
@@ -1078,16 +1189,18 @@ def getTrajectoryDistanceMatrix(trajectories, metric_func = trajectoryDissimilar
 			
 def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2):
 	"""
-	trajectories: the trajectories better to be in XY coordinates
+	trajectories: the trajectories need to be in XY coordinates
 	"""
+	plot_path = utils.queryPath(path + "/plots")
 	distance_matrix = getTrajectoryDistanceMatrix(trajectories, metric_func)
+	# distance_matrix = writeToCSV.loadData("tankers/all_OD_trajectories_distance_matrix_l2.npz".format(path = path)) # load from the previously runned result
 	print "distance_matrix:\n", distance_matrix
-	writeToCSV.saveData(distance_matrix, "tankers/all_OD_trajectories_distance_matrix_l2")
+	writeToCSV.saveData(distance_matrix, path + "/" + fname)
 	v = DIST.squareform(distance_matrix)
 	cluster_result = HAC.linkage(v, method = "average")
 	dg = HAC.dendrogram(cluster_result)
 	plt.xlabel("cluster_dengrogram_{fname}".format(fname = fname))
-	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = path))
+	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
 	
 	# Get the optimal number of clusters
@@ -1118,15 +1231,25 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 		print "\nHAC Cluster label:\n", this_cluster_label
 		print "number of labels by HAC:", len(set(this_cluster_label)), ";starting label is:", min(this_cluster_label)
 		print "n_clusters				CH index"
-		print i,"				", this_CH_index 
+		print i,"				", this_CH_index
 
+		"""Plot the representative trajectories"""
+		plotRepresentativeTrajectory(this_cluster_label, trajectories, \
+			fname = "cluster_centroids_{n}_classes".format(n = len(set(this_cluster_label))), \
+			path = plot_path)
+
+	"""Plot the CH indexes chart"""
 	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), CH_indexes)
 	plt.xlabel("CH_indexes range plot")
+	plt.savefig("{path}/CH_indexes_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
 
+	"""Plot the B and W chart"""
 	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), between_cluster_scatterness, label = "B")
 	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), within_cluster_scatterness, label = "W")
+	plt.xlabel("B and W plot")
 	plt.legend()
+	plt.savefig("{path}/B_and_W_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
 	
 	return opt_cluster_label, cluster_labels, CH_indexes
@@ -1151,17 +1274,25 @@ def main():
 	Test Clustering
 	"""
 	trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories.npz")
+	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
 	print type(trajectories_to_cluster)
 	print len(trajectories_to_cluster)
 	trajectories_to_cluster = list(trajectories_to_cluster)
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, trajectories_to_cluster) # convert Lat, Lon to XY for displaying
-	opt_cluster_label , cluster_labels, CH_indexes = clusterTrajectories(all_OD_trajectories_XY, "10_tankers", pathToSave)
-	writeToCSV.saveData(cluster_labels, root_folder + "/" + "all_OD_trajectories_cluster_labels")
+
+	fname = "10_tankers_dissimilarity_center_mass"
+	opt_cluster_label , cluster_labels, CH_indexes = clusterTrajectories( \
+		all_OD_trajectories_XY, \
+		fname, \
+		utils.queryPath("tankers/cluster_result/{folder}".format(folder = fname)), \
+		metric_func = trajectoryDissimilarityCenterMass)
 	print "opt_cluster_label:", opt_cluster_label
 	print "opt_num_cluster:", len(set(opt_cluster_label))
 
 	# print "distance between 1 and 4, should be quite small:", trajectoryDissimilarityL2(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
 	# print "distance between 0 and 4, should be quite large:", trajectoryDissimilarityL2(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
+	# print "center of mass measure distance between 1 and 4, should be quite small:", trajectoryDissimilarityCenterMass(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
+	# print "center of mass measure distance between 0 and 4, should be quite large:", trajectoryDissimilarityCenterMass(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
 	# print "matrix:\n", getTrajectoryDistanceMatrix(all_OD_trajectories_XY, metric_func = trajectoryDissimilarityL2)
 	# plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "") # TODO: remove error trajectories that are too far from Singapore
 	raise ValueError("purpose stop of the testing clustering procedure")
@@ -1221,7 +1352,7 @@ def main():
 				# temporalTrajectoryInterpolation(OD_trajectories)
 
 				"""
-				Interpolation based on pure geographycal trajectory, ignore temporal information
+				Interpolation based on pure geographical trajectory, ignore temporal information
 				"""
 				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
 				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories)
