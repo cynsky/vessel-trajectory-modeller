@@ -21,163 +21,12 @@ import random
 from sklearn import metrics
 import operator
 import utils
+import plotter
 
 class Point(object):
 	def __init__(self,_x,_y):
 		self.x = _x
 		self.y = _y
-
-
-def getSpeedAccelerations(data):
-	accelerations = [] # acceleration will be in m/s^2
-	timeAxis = [] # time axis in seconds
-	startTime = data[0][utils.dataDict["ts"]]
-	distanceAxis = []
-	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longtitude"]]]
-	for i in range (1, len(data)):
-		curSpeed = data[i][utils.dataDict["speed_over_ground"]]
-		prevSpeed = data[i-1][utils.dataDict["speed_over_ground"]]
-		dt_secs = data[i][utils.dataDict["ts"]] - data[i - 1][utils.dataDict["ts"]]
-		if(curSpeed == 102.3 or prevSpeed == 102.3):
-			continue
-		if(dt_secs == 0):
-			continue
-		accelerations.append((utils.convertKnotToMeterPerSec(curSpeed) - utils.convertKnotToMeterPerSec(prevSpeed))/float(dt_secs))
-		timeAxis.append(data[i][utils.dataDict["ts"]] - startTime)
-		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
-
-
-	accelerations = np.asarray(accelerations)
-	timeAxis = np.asarray(timeAxis)
-	distanceAxis = np.asarray(distanceAxis)
-	return accelerations, timeAxis, distanceAxis
-
-def getSpeeds(data):
-	data = np.asarray(data)
-	speeds = data[:,utils.dataDict["speed_over_ground"]]
-	timeAxis = []
-	timeAxis.append(0)
-	startTime = data[0][utils.dataDict["ts"]]
-	distanceAxis = []
-	distanceAxis.append(0)
-	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longtitude"]]]
-	for i in range(1, len(data)):
-		dt_secs = data[i][utils.dataDict["ts"]] - startTime
-		timeAxis.append(dt_secs)
-		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
-	
-	i = 0
-	while(i < len(speeds)):
-		if(speeds[i] == 102.3): # remove the not available ones
-			speeds = np.delete(speeds, i, 0)
-		else:
-			i += 1
-
-	timeAxis = np.asarray(timeAxis)
-	return speeds, timeAxis, distanceAxis
-
-def getAngularSpeeds(data):
-	data = np.asarray(data)
-	angularSpeeds = data[:,utils.dataDict["rate_of_turn"]]
-	timeAxis = []
-	timeAxis.append(0)
-	startTime = data[0][utils.dataDict["ts"]]
-	for i in range(1, len(data)):
-		dt_secs = data[i][utils.dataDict["ts"]] - startTime
-		timeAxis.append(dt_secs)
-
-	print angularSpeeds.shape
-	i = 0
-	while(i < len(angularSpeeds)):
-		if(angularSpeeds[i] == 128 or angularSpeeds[i] == -128): # remove the not available ones
-			angularSpeeds = np.delete(angularSpeeds, i)
-		else:
-			i += 1
-	timeAxis = np.asarray(timeAxis)
-	return angularSpeeds, timeAxis
-
-def plotFeatureSpace(data):
-	num_bins = 50
-	#1. plot out the acceleration profile
-	accelerations, _ , _= getSpeedAccelerations(data);
-	print accelerations.shape
-	print np.amax(accelerations)
-	print np.amin(accelerations)
-	# plt.plot(accelerations)
-	plt.hist(accelerations, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.ylabel('Relative frequency')
-	plt.xlabel('Acceleration Profile')
-	plt.show()
-
-	#2. plot out the speed profile
-	speeds, _ , _= getSpeeds(data)
-	print np.amax(speeds)
-	print np.amin(speeds)
-	plt.hist(speeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.xlabel("speeds profile")
-	plt.show()
-
-	#3. plot out the turning rate profile
-	angularSpeeds, _ = getAngularSpeeds(data)
-	print np.amax(angularSpeeds)
-	print np.amin(angularSpeeds)
-	plt.hist(angularSpeeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.xlabel("Angular speeds profile")
-	plt.show()
-	return
-
-def plotTrajectoryProfiles(pathToSave, folderName, trajectories, origin, end, savefig = True,showfig = True):
-	if(not os.path.isdir("./{path}/{folderToSave}".format(path = pathToSave, folderToSave = folderName))):
-		os.makedirs("./{path}/{folderToSave}".format(path = pathToSave, folderToSave = folderName))
-
-	for i in range(0, len(trajectories)):
-		last_point_in_trajectory = trajectories[i][len(trajectories[i]) -1]
-		# end[0] is end latitude, end[1] is end longtitude
-		if(utils.nearOrigin(end[0],end[1],last_point_in_trajectory[utils.dataDict["latitude"]], last_point_in_trajectory[utils.dataDict["longtitude"]])): # only plot profile for those trajectories between origin and end		
-			# 1. acceleration profile from start point to end point
-			accelerations, timeAxis, distanceAxis = getSpeedAccelerations(trajectories[i], utils.dataDict)
-			plt.scatter(distanceAxis, accelerations, label = "trajectory_acceleration_profile_{i}".format(i = i))
-			if(savefig):
-				plt.savefig("./{path}/{folderToSave}/trajectory_acceleration_profile_{i}.png".format(path = pathToSave, folderToSave = folderName, i = i))
-			if(showfig):
-				plt.show()
-			plt.clf()
-			# 2. speed profile from start point to end point 
-			speeds, timeAxis , distanceAxis= getSpeeds(trajectories[i], utils.dataDict)
-			plt.scatter(distanceAxis, speeds, label = "trajectory_speed_profile_{i}".format(i = i))
-			if(savefig):
-				plt.savefig("./{path}/{folderToSave}/trajectory_speed_profile_{i}.png".format(path = pathToSave, folderToSave = folderName, i = i))
-			if(showfig):
-				plt.show()
-			plt.clf()
-
-def plotOneTrajectory(trajectory, show = True, clean = True):
-	"""
-	Given one trajectory already converted into XY plane
-	"""
-	trajectory = np.asarray(trajectory)
-	plt.plot(trajectory[0:len(trajectory),utils.data_dict_x_y_coordinate['x']], trajectory[0:len(trajectory),utils.data_dict_x_y_coordinate['y']])
-	if(not plt.gca().yaxis_inverted()):
-		plt.gca().invert_yaxis()
-	if(show):
-		plt.show()
-	if(clean):
-		plt.clf()
-
-def plotListOfTrajectories(trajectories, show = True, clean = True, save = False, fname = "", path = "plots"):
-	"""
-	Give a list of trajectories that are already converted into XY plane
-	"""
-	for i in range(0, len(trajectories)):
-		plotOneTrajectory(trajectories[i], False, False)
-	if(not plt.gca().yaxis_inverted()):
-		plt.gca().invert_yaxis()
-	if(save):
-		plt.savefig("./{path}/{fname}.png".format(path = path, fname = fname))
-	if(show):
-		plt.show()
-	if(clean):
-		plt.clf()
 
 def interpolate1DFeatures(geo_augmented_trajectory, original_trajectory):
 	"""
@@ -513,15 +362,6 @@ def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate):
 		interpolated_trajectories_x_y_coordinate.append(interpolateGeographicalGrid(trajectories_x_y_coordinate[i]))
 	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape
 	return interpolated_trajectories_x_y_coordinate
-
-def notNoise(prevPosition, nextPosition, MAX_SPEED):
-	"""
-	MAX_SPEED: is in knot;
-	returns: True if the distance between prevPosition and nextPosition can not be attained, i.e., noise data
-	"""
-	dt = nextPosition[utils.dataDict["ts"]] - prevPosition[utils.dataDict["ts"]] # in secs
-	dx, dy = utils.LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longtitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longtitude"]])
-	return (np.linalg.norm([dx,dy],2) < (dt * utils.convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
 
 def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
 	"""
@@ -862,7 +702,7 @@ def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = ""):
 	centroids = []
 	for class_label, trajectories in class_trajectories_dict.iteritems():
 		centroids.append(getMeanTrajecotoryWithinClass(trajectories))
-	plotListOfTrajectories(centroids, show = False, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
+	plotter.plotListOfTrajectories(centroids, show = False, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
 
 def getMeanTrajecotoryPointAtIndex(trajectories, index):
 	"""
@@ -991,7 +831,7 @@ def main():
 	# # print "center of mass measure distance between 1 and 4, should be quite small:", trajectoryDissimilarityCenterMass(all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
 	# # print "center of mass measure distance between 0 and 4, should be quite large:", trajectoryDissimilarityCenterMass(all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
 	# # print "matrix:\n", getTrajectoryDistanceMatrix(all_OD_trajectories_XY, metric_func = trajectoryDissimilarityL2)
-	# # plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "") # TODO: remove error trajectories that are too far from Singapore
+	# # plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "") # TODO: remove error trajectories that are too far from Singapore
 	# raise ValueError("purpose stop of the testing clustering procedure")
 
 	"""
@@ -1000,7 +840,7 @@ def main():
 	# filename = "aggregateData.npz"
 	# path = "tankers/cleanedData"
 	# data = writeToCSV.loadArray("{p}/{f}".format(p = path, f=filename))
-	# plotFeatureSpace(data, utils.dataDict)
+	# plotter.plotFeatureSpace(data, utils.dataDict)
 	# raise ValueError("For plotting feature space only")
 
 	"""
@@ -1051,7 +891,7 @@ def main():
 				"""
 				# geographicalTrajetoryInterpolation(trajectories_x_y_coordinate)
 				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories)
-				# plotListOfTrajectories(interpolated_OD_trajectories, show = False, clean = True, save = True, fname = filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
+				# plotter.plotListOfTrajectories(interpolated_OD_trajectories, show = False, clean = True, save = True, fname = filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
 				
 				"""
 				Interpolation of 1D data: speed, rate_of_turn, etc; interpolated_OD_trajectories / OD_trajectories are both in X, Y coordinates
@@ -1072,7 +912,7 @@ def main():
 	writeToCSV.saveData(removeErrorTrajectoryFromList(all_OD_trajectories), root_folder + "/all_OD_trajectories_with_1D_data")
 
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories) # convert Lat, Lon to XY for displaying
-	plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories") # TODO: remove error trajectories that are too far from Singapore
+	plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories") # TODO: remove error trajectories that are too far from Singapore
 
 
 if __name__ == "__main__":

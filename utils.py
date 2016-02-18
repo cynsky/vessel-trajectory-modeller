@@ -122,4 +122,13 @@ def convertKnotToMeterPerSec (knot):
 	KmPerhourToMetrePerSec = 1/3.6
 	return knot * utils.KNOTTOKMPERHOUR * KmPerhourToMetrePerSec
 
+def notNoise(prevPosition, nextPosition, MAX_SPEED):
+	"""
+	MAX_SPEED: is in knot;
+	returns: True if the distance between prevPosition and nextPosition can not be attained, i.e., noise data
+	"""
+	dt = nextPosition[utils.dataDict["ts"]] - prevPosition[utils.dataDict["ts"]] # in secs
+	dx, dy = utils.LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longtitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longtitude"]])
+	return (np.linalg.norm([dx,dy],2) < (dt * utils.convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
+
 
