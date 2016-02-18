@@ -76,3 +76,50 @@ def queryPath(path):
 		os.makedirs("./{path}".format(
 			path = path))
 	return path
+
+
+# from Lat Lon to X Y coordinates in Km
+def LatLonToXY (lat1,lon1,lat2, lon2): # lat1 and lon1 are assumed to be origins, and all inputs are in proper lat lon
+	# fix origin for display
+	dx = (lon2-lon1)*40000*math.cos((lat1+lat2)*math.pi/360)/360
+	dy = (lat1-lat2)*40000/360
+	return dx, dy
+
+# from X Y coordinates in Km to Lat Lon with a given origin Lat/Lon point as reference; Note: X-positive-axis is rightwards and Y-positive axis is downwards
+def XYToLatLonGivenOrigin(lat1, lon1, x, y):
+	lat2 = lat1 - y*360/40000
+	lon2 = lon1 + x/(40000*math.cos((lat1+lat2)*math.pi/360)/360)
+	return lat2, lon2
+
+def nearOrigin(originLat, originLon, currentLat, currentLon, thresh = 0.5): # Default: if within 500 metre, then we regard as this start point close to the origin
+	x, y = LatLonToXY(originLat, originLon, currentLat, currentLon)
+	return (np.linalg.norm([x,y],2) <= thresh) 
+
+def withinStudyWindow(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude,currentLat, currentLon):
+	max_X, max_Y = utils.LatLonToXY(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude)
+	current_X, current_Y = utils.LatLonToXY(originLatitude, originLongtitude, currentLat, currentLon)
+	# if(current_X * max_X < 0): # if X direction is not consistent
+	# 	return False
+	# if(current_Y * max_Y < 0):
+	# 	return False
+	# if(abs(current_X) > abs(max_X)):
+	# 	return False
+	# if(abs(current_Y) > abs(max_Y)):
+	# 	return False
+
+	# Try a study window of a square surrounding the origin
+	squareWindowLen = max(max_X, max_Y)
+	if(abs(current_X) < squareWindowLen and abs(current_Y) < squareWindowLen):
+		return True
+	else:
+		return False
+
+def withinTimeConstriant(startTS, currentTS, timeWindowInHours):
+	return ((currentTS - startTS) < timeWindowInHours * 3600)
+
+def convertKnotToMeterPerSec (knot):
+	utils.KNOTTOKMPERHOUR = 1.85200
+	KmPerhourToMetrePerSec = 1/3.6
+	return knot * utils.KNOTTOKMPERHOUR * KmPerhourToMetrePerSec
+
+

@@ -27,51 +27,6 @@ class Point(object):
 		self.x = _x
 		self.y = _y
 
-# from Lat Lon to X Y coordinates in Km
-def LatLonToXY (lat1,lon1,lat2, lon2): # lat1 and lon1 are assumed to be origins, and all inputs are in proper lat lon
-	# fix origin for display
-	dx = (lon2-lon1)*40000*math.cos((lat1+lat2)*math.pi/360)/360
-	dy = (lat1-lat2)*40000/360
-	return dx, dy
-
-# from X Y coordinates in Km to Lat Lon with a given origin Lat/Lon point as reference; Note: X-positive-axis is rightwards and Y-positive axis is downwards
-def XYToLatLonGivenOrigin(lat1, lon1, x, y):
-	lat2 = lat1 - y*360/40000
-	lon2 = lon1 + x/(40000*math.cos((lat1+lat2)*math.pi/360)/360)
-	return lat2, lon2
-
-def nearOrigin(originLat, originLon, currentLat, currentLon, thresh = 0.5): # Default: if within 500 metre, then we regard as this start point close to the origin
-	x, y = LatLonToXY(originLat, originLon, currentLat, currentLon)
-	return (np.linalg.norm([x,y],2) <= thresh) 
-
-
-def withinStudyWindow(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude,currentLat, currentLon):
-	max_X, max_Y = LatLonToXY(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude)
-	current_X, current_Y = LatLonToXY(originLatitude, originLongtitude, currentLat, currentLon)
-	# if(current_X * max_X < 0): # if X direction is not consistent
-	# 	return False
-	# if(current_Y * max_Y < 0):
-	# 	return False
-	# if(abs(current_X) > abs(max_X)):
-	# 	return False
-	# if(abs(current_Y) > abs(max_Y)):
-	# 	return False
-
-	# Try a study window of a square surrounding the origin
-	squareWindowLen = max(max_X, max_Y)
-	if(abs(current_X) < squareWindowLen and abs(current_Y) < squareWindowLen):
-		return True
-	else:
-		return False
-
-def withinTimeConstriant(startTS, currentTS, timeWindowInHours):
-	return ((currentTS - startTS) < timeWindowInHours * 3600)
-
-
-def convertKnotToMeterPerSec (knot):
-	utils.KNOTTOKMPERHOUR = 1.85200
-	KmPerhourToMetrePerSec = 1/3.6
-	return knot * utils.KNOTTOKMPERHOUR * KmPerhourToMetrePerSec
 
 def getSpeedAccelerations(data):
 	accelerations = [] # acceleration will be in m/s^2
@@ -87,9 +42,9 @@ def getSpeedAccelerations(data):
 			continue
 		if(dt_secs == 0):
 			continue
-		accelerations.append((convertKnotToMeterPerSec(curSpeed) - convertKnotToMeterPerSec(prevSpeed))/float(dt_secs))
+		accelerations.append((utils.convertKnotToMeterPerSec(curSpeed) - utils.convertKnotToMeterPerSec(prevSpeed))/float(dt_secs))
 		timeAxis.append(data[i][utils.dataDict["ts"]] - startTime)
-		distanceAxis.append(np.linalg.norm([LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
+		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
 
 
 	accelerations = np.asarray(accelerations)
@@ -109,7 +64,7 @@ def getSpeeds(data):
 	for i in range(1, len(data)):
 		dt_secs = data[i][utils.dataDict["ts"]] - startTime
 		timeAxis.append(dt_secs)
-		distanceAxis.append(np.linalg.norm([LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
+		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
 	
 	i = 0
 	while(i < len(speeds)):
@@ -178,7 +133,7 @@ def plotTrajectoryProfiles(pathToSave, folderName, trajectories, origin, end, sa
 	for i in range(0, len(trajectories)):
 		last_point_in_trajectory = trajectories[i][len(trajectories[i]) -1]
 		# end[0] is end latitude, end[1] is end longtitude
-		if(nearOrigin(end[0],end[1],last_point_in_trajectory[utils.dataDict["latitude"]], last_point_in_trajectory[utils.dataDict["longtitude"]])): # only plot profile for those trajectories between origin and end		
+		if(utils.nearOrigin(end[0],end[1],last_point_in_trajectory[utils.dataDict["latitude"]], last_point_in_trajectory[utils.dataDict["longtitude"]])): # only plot profile for those trajectories between origin and end		
 			# 1. acceleration profile from start point to end point
 			accelerations, timeAxis, distanceAxis = getSpeedAccelerations(trajectories[i], utils.dataDict)
 			plt.scatter(distanceAxis, accelerations, label = "trajectory_acceleration_profile_{i}".format(i = i))
@@ -565,8 +520,8 @@ def notNoise(prevPosition, nextPosition, MAX_SPEED):
 	returns: True if the distance between prevPosition and nextPosition can not be attained, i.e., noise data
 	"""
 	dt = nextPosition[utils.dataDict["ts"]] - prevPosition[utils.dataDict["ts"]] # in secs
-	dx, dy = LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longtitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longtitude"]])
-	return (np.linalg.norm([dx,dy],2) < (dt * convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
+	dx, dy = utils.LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longtitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longtitude"]])
+	return (np.linalg.norm([dx,dy],2) < (dt * utils.convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
 
 def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
 	"""
@@ -584,11 +539,11 @@ def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude,
 	i = 0
 	while(i< data.shape[0]):
 		cur_pos = data[i]
-		if(nearOrigin(originLatitude, originLongtitude, cur_pos[utils.dataDict["latitude"]], cur_pos[utils.dataDict["longtitude"]], thresh = 0.0) and cur_pos[utils.dataDict["ts"]] == originTS): # must be exact point
+		if(utils.nearOrigin(originLatitude, originLongtitude, cur_pos[utils.dataDict["latitude"]], cur_pos[utils.dataDict["longtitude"]], thresh = 0.0) and cur_pos[utils.dataDict["ts"]] == originTS): # must be exact point
 			this_OD_trajectory = []
 			this_OD_trajectory.append(cur_pos)
 			i += 1
-			while(i < data.shape[0] and (not nearOrigin(endLatitude, endLongtitude, data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]], thresh = 0.0))):
+			while(i < data.shape[0] and (not utils.nearOrigin(endLatitude, endLongtitude, data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]], thresh = 0.0))):
 				this_OD_trajectory.append(data[i])
 				i += 1
 			if(i < data.shape[0]):
@@ -597,13 +552,13 @@ def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude,
 			# box/radius approach in cleaning of points around origin
 			j = 1
 			print "checking points around origin:", j
-			while(j < this_OD_trajectory.shape[0] and nearOrigin(originLatitude, originLongtitude, this_OD_trajectory[j][utils.dataDict["latitude"]], this_OD_trajectory[j][utils.dataDict["longtitude"]], thresh = utils.NEIGHBOURHOOD_ORIGIN)):
+			while(j < this_OD_trajectory.shape[0] and utils.nearOrigin(originLatitude, originLongtitude, this_OD_trajectory[j][utils.dataDict["latitude"]], this_OD_trajectory[j][utils.dataDict["longtitude"]], thresh = utils.NEIGHBOURHOOD_ORIGIN)):
 				j += 1
 			print "last point around origin:", j
 			this_OD_trajectory_around_origin = this_OD_trajectory[0:j]
 			"""Take the box mean, treat timestamp as averaged as well"""
 			this_OD_trajectory_mean_origin = np.mean(this_OD_trajectory_around_origin, axis = 0) 
-			print "mean start point x,y : ", LatLonToXY(originLatitude, originLongtitude, this_OD_trajectory_mean_origin[utils.dataDict["latitude"]], this_OD_trajectory_mean_origin[utils.dataDict["longtitude"]])
+			print "mean start point x,y : ", utils.LatLonToXY(originLatitude, originLongtitude, this_OD_trajectory_mean_origin[utils.dataDict["latitude"]], this_OD_trajectory_mean_origin[utils.dataDict["longtitude"]])
 			OD_trajectories.append(np.insert(this_OD_trajectory[j:],0,this_OD_trajectory_mean_origin, axis = 0))
 			break  # only one trajectory per pair OD, since OD might be duplicated
 		i += 1
@@ -612,7 +567,7 @@ def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude,
 	OD_trajectories_lat_lon = copy.deepcopy(OD_trajectories)
 	for i in range(0, len(OD_trajectories)):
 		for j in range(0, len(OD_trajectories[i])):
-			x, y = LatLonToXY(originLatitude, originLongtitude, OD_trajectories[i][j][utils.dataDict["latitude"]], OD_trajectories[i][j][utils.dataDict["longtitude"]])
+			x, y = utils.LatLonToXY(originLatitude, originLongtitude, OD_trajectories[i][j][utils.dataDict["latitude"]], OD_trajectories[i][j][utils.dataDict["longtitude"]])
 			OD_trajectories[i][j][utils.data_dict_x_y_coordinate["y"]] = y
 			OD_trajectories[i][j][utils.data_dict_x_y_coordinate["x"]] = x
 		# plotting purpose
@@ -630,7 +585,7 @@ def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude,
 	return OD_trajectories, OD_trajectories_lat_lon
 
 def getDistance(point1, point2):
-	dx, dy = LatLonToXY(point1[utils.dataDict["latitude"]], point1[utils.dataDict["longtitude"]], point2[utils.dataDict["latitude"]], point2[utils.dataDict["longtitude"]])
+	dx, dy = utils.LatLonToXY(point1[utils.dataDict["latitude"]], point1[utils.dataDict["longtitude"]], point2[utils.dataDict["latitude"]], point2[utils.dataDict["longtitude"]])
 	return (np.linalg.norm([dx,dy],2))
 
 def alreadyInEndpoints(endpoints, target):
@@ -695,7 +650,7 @@ def extractEndPoints(data):
 def convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, listOfTrajectories):
 	for i in range(0, len(listOfTrajectories)):
 		for j in range(0, len(listOfTrajectories[i])):
-			lat, lon = XYToLatLonGivenOrigin(originLatitude, originLongtitude, listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["x"]], listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["y"]])
+			lat, lon = utils.XYToLatLonGivenOrigin(originLatitude, originLongtitude, listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["x"]], listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["y"]])
 			listOfTrajectories[i][j][utils.dataDict["latitude"]] = lat
 			listOfTrajectories[i][j][utils.dataDict["longtitude"]] = lon
 	return listOfTrajectories
@@ -703,7 +658,7 @@ def convertListOfTrajectoriesToLatLon(originLatitude, originLongtitude, listOfTr
 def convertListOfTrajectoriesToXY(originLatitude, originLongtitude, listOfTrajectories):
 	for i in range(0, len(listOfTrajectories)):
 		for j in range(0, len(listOfTrajectories[i])):
-			x, y = LatLonToXY(originLatitude, originLongtitude, listOfTrajectories[i][j][utils.dataDict["latitude"]], listOfTrajectories[i][j][utils.dataDict["longtitude"]])
+			x, y = utils.LatLonToXY(originLatitude, originLongtitude, listOfTrajectories[i][j][utils.dataDict["latitude"]], listOfTrajectories[i][j][utils.dataDict["longtitude"]])
 			listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["y"]] = y
 			listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["x"]] = x
 	return listOfTrajectories
@@ -716,7 +671,7 @@ def isErrorTrajectory(trajectory, center_lat_sg, center_lon_sg):
 		return True
 
 	for i in range(0, len(trajectory)):
-		dx, dy = LatLonToXY (trajectory[i][utils.dataDict["latitude"]],trajectory[i][utils.dataDict["longtitude"]],center_lat_sg, center_lon_sg)
+		dx, dy = utils.LatLonToXY (trajectory[i][utils.dataDict["latitude"]],trajectory[i][utils.dataDict["longtitude"]],center_lat_sg, center_lon_sg)
 		if(np.linalg.norm([dx, dy], 2) > utils.MAX_DISTANCE_FROM_SG):
 			return True
 	return False
