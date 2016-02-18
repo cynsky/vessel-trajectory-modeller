@@ -357,3 +357,11 @@ def interpolate1DFeatures(geo_augmented_trajectory, original_trajectory):
 			geo_augmented_trajectory[:, feature_id] = feature_values_augmented_trajectory
 	
 	return geo_augmented_trajectory
+
+
+
+
+
+
+
+

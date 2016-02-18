@@ -306,6 +306,9 @@ def main():
 	assert (not endpoints is None), "No endpoints extracted from the historial data"
 	print "Final endpoints.shape:", endpoints.shape
 	print "number of interpolated all_OD_trajectories:", len(all_OD_trajectories)
+	"""
+	save the augmented trajectories between endpoints as npz data file
+	"""
 	writeToCSV.saveData(removeErrorTrajectoryFromList(all_OD_trajectories), root_folder + "/all_OD_trajectories_with_1D_data")
 
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories) # convert Lat, Lon to XY for displaying

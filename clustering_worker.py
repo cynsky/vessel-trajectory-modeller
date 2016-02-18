@@ -22,7 +22,6 @@ from sklearn import metrics
 import operator
 import utils
 import plotter
-import interpolator
 
 def clusterPurity(groundTruth, clusterLabel, n_cluster):
 	purity = np.zeros(n_cluster)
@@ -295,3 +294,10 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	plt.show()
 	
 	return opt_cluster_label, cluster_labels, CH_indexes
+
+
+
+
+
+
+	
