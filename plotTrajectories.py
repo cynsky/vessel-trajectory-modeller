@@ -1324,10 +1324,6 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	return opt_cluster_label, cluster_labels, CH_indexes
 
 def main():
-	filename = "aggregateData.npz"
-	path = "tankers/cleanedData"
-	pathToSave = "tankersGraph"
-	data = loadArray("{p}/{f}".format(p = path, f=filename))
 	root_folder = "tankers"
 
 	"""
@@ -1358,8 +1354,11 @@ def main():
 	# raise ValueError("purpose stop of the testing clustering procedure")
 
 	"""
-	plot out the value space of the features, speed, accelerations, etc
+	plot out the value space of the features, speed, accelerations, etc, for the aggregateData
 	"""
+	# filename = "aggregateData.npz"
+	# path = "tankers/cleanedData"
+	# data = loadArray("{p}/{f}".format(p = path, f=filename))
 	# plotFeatureSpace(data, dataDict)
 	# raise ValueError("For plotting feature space only")
 
@@ -1367,8 +1366,8 @@ def main():
 	Extract endpoints;
 	TODO: Further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
 	"""
-	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
-	# filenames = ["9664225.csv"]
+	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	filenames = ["9664225.csv"]
 	endpoints = None
 	all_OD_trajectories = []
 	
@@ -1433,32 +1432,6 @@ def main():
 
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(CENTER_LAT_SG, CENTER_LON_SG, all_OD_trajectories) # convert Lat, Lon to XY for displaying
 	plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories") # TODO: remove error trajectories that are too far from Singapore
-	
-	# endpoints = np.asarray(extractEndPoints(data))
-	# writeToCSV.writeDataToCSV(endpoints,"tankers/endpoints", "aggregateData_endpoints")
-	# endpoints = writeToCSV.readDataFromCSV("tankers/endpoints", "aggregateData_endpoints.csv")
-	# print endpoints.shape
-	
-	# """
-	# Find the trajectories that start near origin (within 500m radius) ;
-	# within our observation studtWindowLen and within next timeWindow hours of the start
-	# """
-	# originLatitude = data[0][dataDict["latitude"]]
-	# originLongtitude = data[0][dataDict["longtitude"]]
-	# originLatitude = 718208/geoScale # for 1000019 only
-	# originLongtitude = 62245670/geoScale # for 1000019 only
-	
-	# originLatitude = 1.2903432270023394 # test for aggregateData
-	# originLongtitude = 103.72533768968383 # test for aggregateData
-
-	# endLatitude = 1.237067419175662 # test for aggregateData
-	# endLongtitude = 103.79633903503418 # test for aggregateData
-
-	# trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon= extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitude, endLongtitude)
-	# # plotListOfTrajectories(OD_trajectories,True, True)
-	# # writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[2][185:],"tankers/trajectories", "aggregateData_OD_trajectory_{i}_afterFistHour3600".format(i = 2))
-	# # for i in range(0, len(OD_trajectories_lat_lon)):
-	# 	# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[i],"tankers/trajectories", "aggregateData_OD_trajectory_{i}".format(i = i))
 
 
 if __name__ == "__main__":
