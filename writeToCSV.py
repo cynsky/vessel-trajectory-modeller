@@ -4,6 +4,20 @@ import matplotlib.pyplot as plt
 import datetime
 import csv
 
+def saveSparse (array, filename):
+	np.savez(filename,data = array.data ,indices=array.indices,indptr =array.indptr, shape=array.shape )
+
+def loadSparse(filename):
+	loader = np.load(filename)
+	return csc_matrix((  loader['data'], loader['indices'], loader['indptr']), shape = loader['shape'])
+
+def saveArray (array, filename):
+	np.savez(filename,data = array)
+
+def loadArray(filename):
+	loader = np.load(filename)
+	return np.array(loader['data'])
+
 def saveData(data, filename):
 	np.savez(filename,data = data)
 
@@ -12,7 +26,7 @@ def loadData(filename):
 	return loader['data']
 
 def writeNpzToCSV(path, npz_file_name):
-	data = readCSV.loadArray(path +"/"+ npz_file_name)
+	data = loadArray(path +"/"+ npz_file_name)
 	print data.shape
 	if(npz_file_name.find(".") != -1):
 		file_name =  npz_file_name[:npz_file_name.find(".")]

@@ -1,4 +1,4 @@
-# Author: Xing Yifan Yix14021
+# Author: Xing Yifan A0105591J
 import numpy as np
 import math
 import scipy.io as sio
@@ -9,20 +9,7 @@ import matplotlib.pyplot as plt
 import datetime
 import time
 import writeToCSV
-
-def saveSparse (array, filename):
-	np.savez(filename,data = array.data ,indices=array.indices,indptr =array.indptr, shape=array.shape )
-
-def loadSparse(filename):
-	loader = np.load(filename)
-	return csc_matrix((  loader['data'], loader['indices'], loader['indptr']), shape = loader['shape'])
-
-def saveArray (array, filename):
-	np.savez(filename,data = array)
-
-def loadArray(filename):
-	loader = np.load(filename)
-	return np.array(loader['data'])
+import utils
 
 def LatLonToXY (lat1, lon1,lat2, lon2): # lat1 and lon1 are the origins and all inputs are assumed to be in the right format of the lat lon
 	dx = (lon2-lon1)*40000*math.cos((lat1+lat2)*math.pi/360)/360
@@ -73,21 +60,7 @@ def isErrorData(prevData, currentData, maxSpeed):
 
 def main():
 	# assume that the input data are sorted
-	# csv_data = np.genfromtxt ('dynamic/1000019.csv', delimiter=",")
-	geoScale = 600000.0
-
-	# tempStr = "2013-07-12T08:09:09Z"
-	# tempTimeStruct = time.strptime(tempStr, "%Y-%m-%dT%H:%M:%SZ")
-	# print tempTimeStruct
-	# dt = datetime.datetime(*tempTimeStruct[:6])
-	# print dt.strftime("%s")
-	# raise ValueError(-1)
-	
-	# temp =[]
-	# temp.append([1,2,3])
-	# temp.append([1,1,1])
-	# temp.append([3,3,3])
-	# print [item[0:2] for item in temp]
+	utils.GEOSCALE = 600000.0
 
 	# filename = "3916119.csv"
 	# filename = "1000019.csv"
@@ -110,7 +83,7 @@ def main():
 			for row in reader:
 				if(int(row["message_type"]) == 1 or int(row["message_type"]) == 2 or int(row["message_type"]) == 3):
 					# if the Lat Lon info is not available, skip
-					if(float(row["latitude"])/geoScale == 91 or float(row["longitude"])/geoScale == 181):
+					if(float(row["latitude"])/utils.GEOSCALE == 91 or float(row["longitude"])/utils.GEOSCALE == 181):
 						continue
 					
 					time_str = row['timeStamp']
@@ -123,7 +96,7 @@ def main():
 						countSpeedGreaterThan10 += 1
 					if(speedOverGround > maxSpeed and speedOverGround != 102.3): #1023 indicates speed not available
 						maxSpeed = speedOverGround
-					trajectory_point = [int(row["navigation_status"]),float(row["rate_of_turn"]),speedOverGround,float(row["latitude"])/geoScale, float(row["longitude"])/geoScale,float(row["course_over_ground"]), float(row["true_heading"]), int(dt_seconds)]
+					trajectory_point = [int(row["navigation_status"]),float(row["rate_of_turn"]),speedOverGround,float(row["latitude"])/utils.GEOSCALE, float(row["longitude"])/utils.GEOSCALE,float(row["course_over_ground"]), float(row["true_heading"]), int(dt_seconds)]
 					data.append(trajectory_point)
 
 
@@ -149,10 +122,10 @@ def main():
 			aggregateData = data
 		else:
 			aggregateData = np.concatenate((aggregateData, data), axis=0)
-		saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
+		writeToCSV.saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
 	
 	print "aggregateData.shape:", aggregateData.shape
-	# saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
+	# writeToCSV.saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
 	writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
 	# xy_coordinate = [item[3:5] for item in data]
 	# xy_coordinate = np.asarray(xy_coordinate)
@@ -161,8 +134,7 @@ def main():
 	# plt.savefig("vessel_points.png")
 	# plt.show()
 	
-
-	# print np.unique(data_numerical[:,0])
 	return
+
 if __name__ == "__main__":
 	main()
