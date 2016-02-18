@@ -8,6 +8,7 @@ import csv
 import matplotlib.pyplot as plt
 import datetime
 import time
+import writeToCSV
 
 def saveSparse (array, filename):
 	np.savez(filename,data = array.data ,indices=array.indices,indptr =array.indptr, shape=array.shape )
@@ -152,7 +153,7 @@ def main():
 	
 	print "aggregateData.shape:", aggregateData.shape
 	saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
-
+	writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
 	# xy_coordinate = [item[3:5] for item in data]
 	# xy_coordinate = np.asarray(xy_coordinate)
 	# print xy_coordinate.shape c

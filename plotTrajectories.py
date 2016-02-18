@@ -1324,19 +1324,10 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	return opt_cluster_label, cluster_labels, CH_indexes
 
 def main():
-	# originLongtitude = 62245670/geoScale
-	# originLatitude = 718208/geoScale
-
-	# filename = "1000019.npz"
-	# filename = "1000019_extreme.npz"
-	# filename = "9261126.npz"
-	# filename = "3916119.npz"
 	filename = "aggregateData.npz"
-	# path = "cleanedData"
-	# pathToSave = "cleanedData/graphs"
 	path = "tankers/cleanedData"
 	pathToSave = "tankersGraph"
-	data = 	loadArray("{p}/{f}".format(p = path, f=filename))
+	data = loadArray("{p}/{f}".format(p = path, f=filename))
 	root_folder = "tankers"
 
 	"""
@@ -1372,13 +1363,12 @@ def main():
 	# plotFeatureSpace(data, dataDict)
 	# raise ValueError("For plotting feature space only")
 
-
 	"""
 	Extract endpoints;
 	TODO: Further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
 	"""
-	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
-	filenames = ["9664225.csv"]
+	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# filenames = ["9664225.csv"]
 	endpoints = None
 	all_OD_trajectories = []
 	
@@ -1415,11 +1405,6 @@ def main():
 				assert (len(OD_trajectories) > 0), "OD_trajectories extracted must have length > 0"
 				print "number of trajectory points extracted : ", len(OD_trajectories[0])
 				# writeToCSV.writeDataToCSV(OD_trajectories_lat_lon[0],root_folder + "/trajectories", "{filename}_trajectory_endpoint_{s}_to_{e}".format(filename = filenames[i][:filenames[i].find(".")], s = s, e = s + 1))
-				
-				"""
-				Interpolation based on temporal information based trajectory, need to only consider trajectories between nicely found O-D
-				"""
-				# temporalTrajectoryInterpolation(OD_trajectories)
 
 				"""
 				Interpolation based on pure geographical trajectory, ignore temporal information
@@ -1428,7 +1413,6 @@ def main():
 				interpolated_OD_trajectories = geographicalTrajetoryInterpolation(OD_trajectories)
 				# plotListOfTrajectories(interpolated_OD_trajectories, show = False, clean = True, save = True, fname = filenames[i][:filenames[i].find(".")] + "_interpolated_algo_3final_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
 				
-
 				"""
 				Interpolation of 1D data: speed, rate_of_turn, etc; interpolated_OD_trajectories / OD_trajectories are both in X, Y coordinates
 				"""
