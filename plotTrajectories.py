@@ -1,4 +1,4 @@
-# Author: Xing Yifan Yix14021
+# Author: Xing Yifan A0105591J
 import numpy as np
 import math
 import scipy.io as sio
@@ -283,149 +283,6 @@ def plotListOfTrajectories(trajectories, show = True, clean = True, save = False
 		plt.show()
 	if(clean):
 		plt.clf()
-
-def getNumberOfPointsToTake(trajectories, data_dict_x_y_coordinate, interval = 60.0):
-	"""
-	Number of points to take = minimum change of time over the trajectory/60 seconds
-	"""
-	min_delta_time = None
-
-	for i in range(0, len(trajectories)):
-		delta_time = trajectories[i][len(trajectories[i]) -1][data_dict_x_y_coordinate['ts']] -  trajectories[i][0][data_dict_x_y_coordinate['ts']]
-		if(min_delta_time == None):
-			min_delta_time = delta_time
-		elif(delta_time < min_delta_time):
-			min_delta_time = delta_time
-		print "number of poinst on trajectories[{i}]:".format(i =i), len(trajectories[i]), " ;delta_time: ", delta_time
-	print "min_delta_time:", min_delta_time
-	return int(min_delta_time/interval)
-
-# TODO: if we need to consider temporal information, then, we need to further clean out the points on the trajectory where it rambles around the origin
-def interpolateTrajectorypointsTemporal(trajectory_x_y_coordinate, points_time_axis, data_dict_x_y_coordinate):
-	"""
-	interpolate based on 't' temporal information as base coordinate
-	"""
-	print "in interpolateTrajectorypointsTemporal, len(points_time_axis)", len(points_time_axis)
-	trajectory_x_y_coordinate = np.asarray(trajectory_x_y_coordinate)
-	interpolated_trajectory_x_y_coordinate = np.zeros(shape = (len(points_time_axis), trajectory_x_y_coordinate.shape[1]))
-	x = trajectory_x_y_coordinate[:,data_dict_x_y_coordinate['ts']] - trajectory_x_y_coordinate[0][data_dict_x_y_coordinate['ts']] 
-	print "\nx:\n", x
-	print "\npoints_time_axis:\n", points_time_axis
-
-	# x should only be in the range of the points_time_axis, trim the unnecessary extra ones
-	time_axis_end_index = len(x)
-	if(len(x) > len(points_time_axis)):		
-		for i in range(0, len(x)):
-			if(x[i] > points_time_axis[len(points_time_axis) - 1]):
-				break;
-		if(i != len(x)):
-			time_axis_end_index = i + 1
-
-	
-	print "in interpolateTrajectorypointsTemporal, original num points:", len(x)
-	print "in interpolateTrajectorypointsTemporal, range of x needed:", time_axis_end_index
-	x = x[0:time_axis_end_index]
-
-	for j in range(0, trajectory_x_y_coordinate.shape[1]):
-		if(j != data_dict_x_y_coordinate['ts']):
-			y = trajectory_x_y_coordinate[0:time_axis_end_index,j]
-
-			tmp = OrderedDict()
-			for point in zip(x, y):
-				tmp.setdefault(point, point)
-			mypoints = tmp.values()
-			x_trim = [point[0] for point in mypoints]
-			y_trim = [point[1] for point in mypoints]
-			
-			"""TODO: debug numpy.linalg.linalg.LinAlgError: singular matrix"""			
-			f = interpolate.interp1d(x_trim, y_trim, kind='cubic')
-			interpolated_y = f(points_time_axis)
-			interpolated_trajectory_x_y_coordinate[:,j] = interpolated_y
-		else:
-			interpolated_trajectory_x_y_coordinate[:,j] = points_time_axis + trajectory_x_y_coordinate[0][data_dict_x_y_coordinate['ts']]
-	print "in interpolateTrajectorypointsTemporal, interpolated_trajectory_x_y_coordinate.shape:", interpolated_trajectory_x_y_coordinate.shape
-	return interpolated_trajectory_x_y_coordinate
-
-
-def temporalTrajectoryInterpolation(trajectories_x_y_coordinate):
-	if(len(trajectories_x_y_coordinate) == 0):
-		return
-	interval = 120.0
-	num_points = getNumberOfPointsToTake(trajectories_x_y_coordinate, data_dict_x_y_coordinate, interval)
-	points_time_axis = np.arange(0, interval*(num_points + 1),interval)
-
-	interpolated_trajectories_x_y_coordinate = []
-	for i in range(0, len(trajectories_x_y_coordinate)):
-		interpolated_trajectories_x_y_coordinate.append(interpolateTrajectorypointsTemporal(trajectories_x_y_coordinate[i], points_time_axis, data_dict_x_y_coordinate))
-	print "interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape	
-	plotListOfTrajectories(interpolated_trajectories_x_y_coordinate)
-
-	# plotOneTrajectory(trajectories_x_y_coordinate[39])
-	# interpolated_test_39 = interpolateTrajectorypointsTemporal(trajectories_x_y_coordinate[39], points_time_axis, data_dict_x_y_coordinate)
-	# plotOneTrajectory(interpolated_test_39)
-
-	# plotOneTrajectory(trajectories_x_y_coordinate[43])
-	# interpolated_test_43 = interpolateTrajectorypointsTemporal(trajectories_x_y_coordinate[43], points_time_axis, data_dict_x_y_coordinate)
-	# plotOneTrajectory(interpolated_test_43)
-
-
-def interpolateTrajectorypointsGeographical(trajectory,d):
-	"""
-	trajectory needs to be converted in XY coordinate
-	"""
-	trajectory = np.asarray(trajectory)
-	x = trajectory[:,data_dict_x_y_coordinate['x']]
-	y = trajectory[:,data_dict_x_y_coordinate['y']]
-	plotOneTrajectory(trajectory, show = True, clean = True)
-
-	# unique_x, indexes = np.unique(x,return_index = True)
-	# indexes = sorted(indexes)
-	# x = x[indexes]
-	# y = y[indexes]
-	
-
-	print "len(x):", len(x)
-	print "len(y):", len(y)
-	print "len(set(x)):", len(set(x))
-	print "len(set(y)):", len(set(y))
-
-	tmp = OrderedDict()
-	for point in zip(x, y):
-		print point
-		tmp.setdefault(point, point)
-	mypoints = tmp.values()
-	print "mypoints:\n", len(mypoints)
-	x = [point[0] for point in mypoints]
-	y = [point[1] for point in mypoints]
-
-	print "x after trim:", len(x)
-	print "y after trim:", len(y)
-
-	f = interpolate.interp1d(x, y, kind='slinear')
-	# tck,u = interpolate.splprep([x,y], s=0)
-
-	# print max(x), x[len(x) -1]
-
-	# Get equal distance points with d
-	pre_x = x[0]
-	pre_y = y[0]
-	step = d/10.0
-	interpolated_points = [Point(pre_x, pre_y)]
-	"""TODO: fix the case if there are multiple y values for the same x coordinate"""
-	for x_scan in np.arange(pre_x, max(x), step):
-		y_scan = f(x_scan)
-		# y_scan = interpolate.splev(x_scan, tck)
-		if(distance.euclidean([pre_x,pre_y],[x_scan, y_scan]) >= d):
-			interpolated_points.append(Point(x_scan, y_scan))
-			pre_x = x_scan
-			pre_y = y_scan # update pre point
-
-	print "end of interpolation of X, Y for one trajectory:", len(interpolated_points)
-	plt.plot([point.x for point in interpolated_points], [point.y for point in interpolated_points])
-	if(not plt.gca().yaxis_inverted()):
-		plt.gca().invert_yaxis()
-	plt.show()
-
 
 def interpolate1DFeatures(geo_augmented_trajectory, original_trajectory):
 	"""
@@ -758,127 +615,18 @@ def geographicalTrajetoryInterpolation(trajectories_x_y_coordinate):
 
 	interpolated_trajectories_x_y_coordinate = []
 	for i in range(0, len(trajectories_x_y_coordinate)):
-		# interpolated_trajectories_x_y_coordinate.append(interpolateTrajectorypointsGeographical(trajectories_x_y_coordinate[i],d))
 		interpolated_trajectories_x_y_coordinate.append(interpolateGeographicalGrid(trajectories_x_y_coordinate[i]))
 	print "in geographicalTrajetoryInterpolation interpolated_trajectories_x_y_coordinate.shape:", np.asarray(interpolated_trajectories_x_y_coordinate).shape
 	return interpolated_trajectories_x_y_coordinate
 
-
 def notNoise(prevPosition, nextPosition, MAX_SPEED):
 	"""
-	: MAX_SPEED is in knot
+	MAX_SPEED: is in knot;
+	returns: True if the distance between prevPosition and nextPosition can not be attained, i.e., noise data
 	"""
 	dt = nextPosition[dataDict["ts"]] - prevPosition[dataDict["ts"]] # in secs
 	dx, dy = LatLonToXY(prevPosition[dataDict["latitude"]], prevPosition[dataDict["longtitude"]], nextPosition[dataDict["latitude"]], nextPosition[dataDict["longtitude"]])
 	return (np.linalg.norm([dx,dy],2) < (dt * convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
-
-def extractAndPlotTrajectories(data, originLatitude, originLongtitude, endLatitude, endLongtitude, studyWindowLen = 8.0, timeWindow = 24, show = True):
-	"""
-	:studyWindowLen is in Km, timeWindow is in hours (usually AIS data is on daily base tracking)
-	"""
-	maxSpeed = 0
-	for i in range(0, data.shape[0]):
-		speed_over_ground = data[i][dataDict["speed_over_ground"]]
-		if(speed_over_ground > maxSpeed and speed_over_ground != 102.3): #1023 indicates speed not available
-			maxSpeed = speed_over_ground
-	print "\n\nmaxSpeed:",maxSpeed, ", in km/h:",convertKnotToMeterPerSec(maxSpeed)
-
-
-	print "origin lat:", originLatitude, ", origin Lon:",originLongtitude
-	print "end lat:", endLatitude, ", end Lon:",endLongtitude
-	max_x, max_y = LatLonToXY(originLatitude, originLongtitude, endLatitude, endLongtitude)
-	print "max_x:", max_x, ",max_y:", max_y
-	
-	
-	# timeWindow = studyWindowLen/(0.1*knotToKmPerhour) # based on a a slowest 0.1 knot speed estimation
-	# assume a 50 km * 50 km study window, assume the vessel speed is around 8 knot, 10 km/h, then within half an hour time window, the study window should be 5* 5 km
-	vesselLatitude, vesselLongtitude = XYToLatLonGivenOrigin(originLatitude, originLongtitude, studyWindowLen,-studyWindowLen)
-	print "furthurst possible vessel Lat:",vesselLatitude, ", furthurst possible vessel Lon:",vesselLongtitude
-
-	i = 0
-	trajectories = []
-	OD_trajectories = [] # origin destination endpoints trajectory
-	while(i+1< data.shape[0]):
-		currentPosition = data[i]
-		if(nearOrigin(originLatitude, originLongtitude, currentPosition[dataDict["latitude"]], currentPosition[dataDict["longtitude"]], 0.005)):
-			startTS = currentPosition[dataDict["ts"]] # the ts of the start point
-			thisTrajectory = []
-			
-			prevPosition = data[i]
-			nextPosition = data[i+1] # get next point inline
-			# skip data if it is still around origin (noise)
-			while(nearOrigin(currentPosition[dataDict["latitude"]], currentPosition[dataDict["longtitude"]], nextPosition[dataDict["latitude"]], nextPosition[dataDict["longtitude"]], NEIGHBOURHOOD)):
-				i += 1
-				nextPosition = data[i+1]
-				prevPosition = data[i]
-			# update start point and start time
-			currentPosition = prevPosition
-			startTS = currentPosition[dataDict["ts"]] # the ts of the updated start point
-			thisTrajectory.append(currentPosition)			
-
-			# if satisfy condition, append to this trajectory
-			while(withinStudyWindow(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude,nextPosition[dataDict["latitude"]], nextPosition[dataDict["longtitude"]]) and withinTimeConstriant(startTS, nextPosition[dataDict["ts"]], timeWindow)):
-			# while(withinStudyWindow(originLatitude, originLongtitude, vesselLatitude,vesselLongtitude,nextPosition[dataDict["latitude"]], nextPosition[dataDict["longtitude"]])):
-			# while(withinTimeConstriant(startTS, nextPosition[dataDict["ts"]], timeWindow)):
-				"""
-				Check if the next point is noise, somtimes, a noise point might be able to fulfill constraint put by maxSpeed
-				"""	
-				if(notNoise(prevPosition, nextPosition, maxSpeed)):
-					thisTrajectory.append(nextPosition)
-					i += 1
-					if((i+1) >= data.shape[0]):
-						break # reaching end of the file
-					if(nearOrigin(endLatitude, endLongtitude, nextPosition[dataDict["latitude"]], nextPosition[dataDict["longtitude"]], NEIGHBOURHOOD)):
-						print "break because reach end point"
-						OD_trajectories.append(np.copy(np.array(thisTrajectory)))
-						break
-				prevPosition = nextPosition
-				nextPosition = data[i+1]
-			# out of the while loop, meaning the end of this trajectory with the constraint of current study window and time frame
-			if(len(thisTrajectory) > 1): # impose a threshold, must contain at least certain number of points to be a trajectory
-				trajectories.append(thisTrajectory)
-		i += 1
-
-	print "number of trajectories captured:",len(trajectories)
-	if(len(trajectories) > 0):
-		print "number of points in the trajectories[0]:", len(trajectories[0])
-	# plot statistics of the captured trajectory: speed profile, acceleration profile from start point to end point 
-	# plotTrajectoryProfiles(pathToSave, filename[0:filename.find(".")] + "trajectoryProfiles", trajectories, dataDict, [originLatitude, originLongtitude], [endLatitude,endLongtitude])
-
-	# plot totalCoordinates of all points in all trajectories captured
-	trajectories_x_y_coordinate = np.copy(trajectories)
-
-	totalCoordinates = []
-	for i in range(0, len(trajectories)):
-		thisTrajectoryCoordinates = []
-
-		for j in range(0, len(trajectories[i])):
-			x, y = LatLonToXY(originLatitude, originLongtitude, trajectories[i][j][dataDict["latitude"]], trajectories[i][j][dataDict["longtitude"]])
-			totalCoordinates.append([x,y])
-			thisTrajectoryCoordinates.append([x,y])
-			trajectories_x_y_coordinate[i][j][data_dict_x_y_coordinate['y']] = y # y corresponds to latitude value
-			trajectories_x_y_coordinate[i][j][data_dict_x_y_coordinate['x']] = x # x corresponds to longtitude value
-
-		thisTrajectoryCoordinates = np.asarray(thisTrajectoryCoordinates)
-		
-		plt.plot(thisTrajectoryCoordinates[0:len(thisTrajectoryCoordinates),0], thisTrajectoryCoordinates[0:len(thisTrajectoryCoordinates),1])
-
-	totalCoordinates = np.asarray(totalCoordinates)
-	print "totalCoordinates.shape:", totalCoordinates.shape
-	plt.gca().invert_yaxis()
-	# plt.savefig("{p}/{i}x{i}km_studywindow_{t}_timewindow_{f}_origin_{lat}_{lon}_trajectories.png".format(p = pathToSave, t = timeWindow, i = studyWindowLen, f = filename[0:filename.find(".")], lat = originLatitude, lon = originLongtitude))
-	if(show):
-		plt.show()
-
-	OD_trajectories_lat_lon = copy.deepcopy(OD_trajectories)
-	#Set X,Y coordinate for the OD_trajectories
-	for i in range(0, len(OD_trajectories)):
-		for j in range(0, len(OD_trajectories[i])):
-			x, y = LatLonToXY(originLatitude, originLongtitude, OD_trajectories[i][j][dataDict["latitude"]], OD_trajectories[i][j][dataDict["longtitude"]])
-			OD_trajectories[i][j][data_dict_x_y_coordinate["y"]] = y
-			OD_trajectories[i][j][data_dict_x_y_coordinate["x"]] = x
-
-	return trajectories_x_y_coordinate, OD_trajectories, OD_trajectories_lat_lon
 
 def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
 	"""
@@ -1093,7 +841,6 @@ def getTrajectoryCenterofMass(t):
 	center_y = np.mean(t[:, data_dict_x_y_coordinate["y"]])
 	return np.asarray([center_x, center_y])
 
-
 def distanceBetweenTwoTrajectoryPoint(p1, p2):
 	"""
 	p1, p2 are in X, Y coordinates
@@ -1154,7 +901,6 @@ def trajectoryDissimilarityCenterMass (t1, t2):
 	ctr_dist = DIST.euclidean(center_mass_t1, center_mass_t2)
 
 	return  ctr_dist + ctr_dist * (abs(len_t1 - len_t2) / max(len_t1, len_t2)) if (max(len_t1, len_t2) > 0) else 0 + np.average([s1_norm, s2_norm]) * cosine_dist
-
 
 def withinClassVariation(class_trajectories, distance_matrix, metric_func):
 	"""
@@ -1392,7 +1138,7 @@ def main():
 			endLongtitude = this_vessel_endpoints[s + 1][dataDict["longtitude"]]	
 			end_ts = this_vessel_endpoints[s + 1][dataDict["ts"]]
 			# if there could be possibly a trajectory between theses two this_vessel_endpoints; 
-			# Could do a check here or just let the extractAndPlotTrajectories return empty array
+			# Could do a check here or just let the extractTrajectoriesUntilOD return empty array
 			if(end_ts - origin_ts <= 3600 * 24):
 				"""Extracting trajectory between a pair of OD"""
 				print "\n\nextracting endpoints between ", s, " and ", s + 1
