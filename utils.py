@@ -29,10 +29,11 @@ dataDict = {
 "rate_of_turn":1,
 "speed_over_ground":2,
 "latitude":3,
-"longtitude":4,
+"longitude":4,
 "course_over_ground":5,
 "true_heading":6,
-"ts":7
+"ts":7,
+"mmsi":8
 }
 
 data_dict_x_y_coordinate = {
@@ -43,7 +44,8 @@ data_dict_x_y_coordinate = {
 "x":4,
 "course_over_ground":5,
 "true_heading":6,
-"ts":7
+"ts":7,
+"mmsi":8
 }
 
 CENTER_LAT_SG = 1.2
@@ -65,6 +67,8 @@ STAYTIME_THRESH = 1800 # 1 hour
 MAX_FLOAT = sys.float_info.max
 
 MAX_DISTANCE_FROM_SG = 100 # 100 km
+
+BOUNDARY_TIME_DIFFERENCE = 7 * 3600
 
 
 def queryPath(path):
@@ -128,7 +132,7 @@ def notNoise(prevPosition, nextPosition, MAX_SPEED):
 	returns: True if the distance between prevPosition and nextPosition can not be attained, i.e., noise data
 	"""
 	dt = nextPosition[utils.dataDict["ts"]] - prevPosition[utils.dataDict["ts"]] # in secs
-	dx, dy = utils.LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longtitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longtitude"]])
+	dx, dy = utils.LatLonToXY(prevPosition[utils.dataDict["latitude"]], prevPosition[utils.dataDict["longitude"]], nextPosition[utils.dataDict["latitude"]], nextPosition[utils.dataDict["longitude"]])
 	return (np.linalg.norm([dx,dy],2) < (dt * utils.convertKnotToMeterPerSec(MAX_SPEED))/1000.0) 
 
 

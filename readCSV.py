@@ -61,6 +61,7 @@ def isErrorData(prevData, currentData, maxSpeed):
 def main():
 	# assume that the input data are sorted
 	utils.GEOSCALE = 600000.0
+	record_mmsi = True
 
 	# filename = "3916119.csv"
 	# filename = "1000019.csv"
@@ -96,7 +97,16 @@ def main():
 						countSpeedGreaterThan10 += 1
 					if(speedOverGround > maxSpeed and speedOverGround != 102.3): #1023 indicates speed not available
 						maxSpeed = speedOverGround
-					trajectory_point = [int(row["navigation_status"]),float(row["rate_of_turn"]),speedOverGround,float(row["latitude"])/utils.GEOSCALE, float(row["longitude"])/utils.GEOSCALE,float(row["course_over_ground"]), float(row["true_heading"]), int(dt_seconds)]
+					trajectory_point = [ \
+					int(row["navigation_status"]), \
+					float(row["rate_of_turn"]), \
+					speedOverGround,float(row["latitude"])/utils.GEOSCALE, \
+					float(row["longitude"])/utils.GEOSCALE, \
+					float(row["course_over_ground"]), \
+					float(row["true_heading"]), \
+					int(dt_seconds)]
+					if (record_mmsi):
+						trajectory_point.append(long(row["mmsi"]))
 					data.append(trajectory_point)
 
 
@@ -122,11 +132,12 @@ def main():
 			aggregateData = data
 		else:
 			aggregateData = np.concatenate((aggregateData, data), axis=0)
-		writeToCSV.saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
+		# writeToCSV.saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
 	
 	print "aggregateData.shape:", aggregateData.shape
 	# writeToCSV.saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
-	writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
+	# writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
+	writeToCSV.writeDataToCSVWithMMSI(aggregateData, foldername, "aggregateData_with_mmsi")
 	# xy_coordinate = [item[3:5] for item in data]
 	# xy_coordinate = np.asarray(xy_coordinate)
 	# print xy_coordinate.shape c

@@ -182,7 +182,7 @@ def formClassTrajectoriesDict(cluster_label, data):
 		class_trajectories_dict[class_label].append(data[i])
 	return class_trajectories_dict
 
-def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = ""):
+def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = "", show = False):
 	"""
 	cluster_label: length n
 	data: length n, needs to be in X, Y coordinate
@@ -193,15 +193,16 @@ def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = ""):
 	centroids = []
 	for class_label, trajectories in class_trajectories_dict.iteritems():
 		centroids.append(getMeanTrajecotoryWithinClass(trajectories))
-	plotter.plotListOfTrajectories(centroids, show = False, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
+	plotter.plotListOfTrajectories(centroids, show = show, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
 
 def getMeanTrajecotoryPointAtIndex(trajectories, index):
 	"""
-	trajectories: a list of trajectories
+	trajectories: a list of trajectories, length > 0
 	index: a position on one trajectory
 	returns: the mean trajectory point at the given position across all trajectories in the given list
 	"""
-	mean = np.zeros(len(utils.data_dict_x_y_coordinate))
+	assert len(trajectories) > 0, "need at least one trajectory to get the mean"
+	mean = np.zeros(len(trajectories[0][0]))
 	count = 0
 	for i in range(0, len(trajectories)):
 		if(index < len(trajectories[i])):
@@ -212,8 +213,10 @@ def getMeanTrajecotoryPointAtIndex(trajectories, index):
 	return mean
 
 def getMeanTrajecotoryWithinClass(class_trajectories):
+	assert len(class_trajectories) > 0, "class_trajectories need to have at least one in it to get the mean"
 	max_length_index, max_length = max(enumerate([len(t) for t in class_trajectories]), key = operator.itemgetter(1))
-	mean_trajectory = np.zeros(shape = (max_length, len(utils.data_dict_x_y_coordinate)))
+	dimension = len(class_trajectories[0][0])
+	mean_trajectory = np.zeros(shape = (max_length, dimension))
 	for i in range(0, max_length):
 		mean_trajectory[i] = getMeanTrajecotoryPointAtIndex(class_trajectories, i)
 	return mean_trajectory
@@ -228,72 +231,101 @@ def getTrajectoryDistanceMatrix(trajectories, metric_func = trajectoryDissimilar
 			distance_matrix[j][i] = distance_matrix[i][j]
 	return distance_matrix
 			
-def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2):
+def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2, user_distance_matrix = None):
 	"""
 	trajectories: the trajectories need to be in XY coordinates
 	"""
 	plot_path = utils.queryPath(path + "/plots")
-	distance_matrix = getTrajectoryDistanceMatrix(trajectories, metric_func)
-	# distance_matrix = writeToCSV.loadData("tankers/all_OD_trajectories_distance_matrix_l2.npz".format(path = path)) # load from the previously runned result
+	if(user_distance_matrix is None):
+		distance_matrix = getTrajectoryDistanceMatrix(trajectories, metric_func)
+		writeToCSV.saveData(distance_matrix, path + "/" + fname) # save the distance_matrix
+	else:
+		distance_matrix = user_distance_matrix
+		assert len(distance_matrix) == len(trajectories), "distance_matrix (n, n) and trajectories(n) should have same number of samples"
+	
 	print "distance_matrix:\n", distance_matrix
-	writeToCSV.saveData(distance_matrix, path + "/" + fname)
+	
 	v = DIST.squareform(distance_matrix)
 	cluster_result = HAC.linkage(v, method = "average")
 	dg = HAC.dendrogram(cluster_result)
 	plt.xlabel("cluster_dengrogram_{fname}".format(fname = fname))
 	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
+
+	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.0, criterion='inconsistent')
+	this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.0 * 1000, criterion='distance') # distance for l2 measure
+	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.5, criterion='distance') # distance for center of mass measure
+	print "this_cluster_label:", this_cluster_label, "number of clusters:", len(set(this_cluster_label))
+
+	"""Plot the representative trajectories"""
+	plotRepresentativeTrajectory(this_cluster_label, trajectories, \
+		fname = "cluster_centroids_{n}_classes".format(n = len(set(this_cluster_label))), \
+		path = plot_path, 
+		show = True)
 	
-	# Get the optimal number of clusters
-	MIN_NUM_CLUSTER = 2
-	MAX_NUM_CLUSTER = min(300,len(trajectories))
-	opt_num_cluster = MIN_NUM_CLUSTER
-	opt_CH_index = -1
-	opt_cluster_label = None
+	return this_cluster_label, [this_cluster_label], []
 
-	CH_indexes = []
-	cluster_labels = []
-	between_cluster_scatterness = []
-	within_cluster_scatterness = []
+	# # Get the optimal number of clusters
+	# MIN_NUM_CLUSTER = 2
+	# MAX_NUM_CLUSTER = min(300,len(trajectories)) # assume maximum 300 clusters
+	# # MAX_NUM_CLUSTER = len(trajectories)
+	# opt_num_cluster = MIN_NUM_CLUSTER
+	# opt_CH_index = -1
+	# opt_cluster_label = None
 
-	for i in range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER):
-		this_cluster_label = HAC.fcluster(Z= cluster_result, t= i,criterion='maxclust')
-		this_CH_index, B, W = CHIndex(this_cluster_label, distance_matrix, trajectories, metric_func)
+	# CH_indexes = []
+	# cluster_labels = []
+	# between_cluster_scatterness = []
+	# within_cluster_scatterness = []
+
+	# for i in range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER):
+	# 	this_cluster_label = HAC.fcluster(Z= cluster_result, t= i,criterion='maxclust')
+	# 	this_CH_index, B, W = CHIndex(this_cluster_label, distance_matrix, trajectories, metric_func)
 		
-		CH_indexes.append(this_CH_index)
-		between_cluster_scatterness.append(B)
-		within_cluster_scatterness.append(W)
-		cluster_labels.append(this_cluster_label)
+	# 	CH_indexes.append(this_CH_index)
+	# 	between_cluster_scatterness.append(B)
+	# 	within_cluster_scatterness.append(W)
+	# 	cluster_labels.append(this_cluster_label)
 		
-		if(this_CH_index > opt_CH_index):
-			opt_CH_index = this_CH_index
-			opt_num_cluster = i
-			opt_cluster_label = this_cluster_label
-		print "\nHAC Cluster label:\n", this_cluster_label
-		print "number of labels by HAC:", len(set(this_cluster_label)), ";starting label is:", min(this_cluster_label)
-		print "n_clusters				CH index"
-		print i,"				", this_CH_index
+	# 	if(this_CH_index > opt_CH_index):
+	# 		opt_CH_index = this_CH_index
+	# 		opt_num_cluster = i
+	# 		opt_cluster_label = this_cluster_label
+	# 	print "\nHAC Cluster label:\n", this_cluster_label
+	# 	print "number of labels by HAC:", len(set(this_cluster_label)), ";starting label is:", min(this_cluster_label)
+	# 	print "n_clusters				CH index"
+	# 	print i,"				", this_CH_index
 
-		"""Plot the representative trajectories"""
-		plotRepresentativeTrajectory(this_cluster_label, trajectories, \
-			fname = "cluster_centroids_{n}_classes".format(n = len(set(this_cluster_label))), \
-			path = plot_path)
+	# 	"""Plot the representative trajectories"""
+	# 	plotRepresentativeTrajectory(this_cluster_label, trajectories, \
+	# 		fname = "cluster_centroids_{n}_classes".format(n = len(set(this_cluster_label))), \
+	# 		path = plot_path)
 
-	"""Plot the CH indexes chart"""
-	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), CH_indexes)
-	plt.xlabel("CH_indexes range plot")
-	plt.savefig("{path}/CH_indexes_{fname}.png".format(fname = fname, path = plot_path))
-	plt.show()
+	# """Plot the CH indexes chart"""
+	# plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), CH_indexes)
+	# plt.xlabel("CH_indexes range plot")
+	# plt.savefig("{path}/CH_indexes_{fname}.png".format(fname = fname, path = plot_path))
+	# plt.show()
+	# writeToCSV.saveData(CH_indexes, path + "/" + fname + "_CH_indexes")
 
-	"""Plot the B and W chart"""
-	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), between_cluster_scatterness, label = "B")
-	plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), within_cluster_scatterness, label = "W")
-	plt.xlabel("B and W plot")
-	plt.legend()
-	plt.savefig("{path}/B_and_W_{fname}.png".format(fname = fname, path = plot_path))
-	plt.show()
+	# """Plot the CH indexes slope chart"""
+	# CH_indexes_slopes = []
+	# for i in range(0, len(CH_indexes) - 1):
+	# 	CH_indexes_slopes.append(CH_indexes[i+1] - CH_indexes[i])
+	# plt.plot(range(0, len(CH_indexes_slopes)), CH_indexes_slopes)
+	# plt.xlabel("CH_indexes_slopes range plot")
+	# plt.savefig("{path}/CH_indexes_slopes_{fname}.png".format(fname = fname, path = plot_path))
+	# plt.show()
+
+	# """Plot the B and W chart"""
+	# plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), between_cluster_scatterness, label = "B")
+	# plt.plot(range(MIN_NUM_CLUSTER, MAX_NUM_CLUSTER), within_cluster_scatterness, label = "W")
+	# plt.xlabel("B and W plot")
+	# plt.legend()
+	# plt.savefig("{path}/B_and_W_{fname}.png".format(fname = fname, path = plot_path))
+	# plt.show()
 	
-	return opt_cluster_label, cluster_labels, CH_indexes
+	# return opt_cluster_label, cluster_labels, CH_indexes
 
 
 

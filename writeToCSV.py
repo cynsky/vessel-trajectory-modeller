@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import csv
+import utils
 
 def saveSparse (array, filename):
 	np.savez(filename,data = array.data ,indices=array.indices,indptr =array.indptr, shape=array.shape )
@@ -48,6 +49,58 @@ def readDataFromCSV(path, filename):
 					data.append(trajectory_point)
 
 	return np.asarray(data)
+
+
+def readDataFromCSVWithMMSI(path, filename):
+	"""
+	filename: with .csv suffix
+	"""
+	data = []
+	with open('{path}/{filename}'.format(path = path, filename = filename), 'rU') as csvfile:
+			reader = csv.DictReader(csvfile, dialect=csv.excel_tab, delimiter = ',')
+
+			for row in reader:
+					# time_str = row['timeStamp']
+					# timestamp = time.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ") # parse the time
+					# dt_seconds = datetime.datetime(*timestamp[:6]).strftime("%s")
+					trajectory_point = [int(float(row["navigation_status"])), \
+					float(row["rate_of_turn"]), \
+					float(row["speed_over_ground"]), \
+					float(row["latitude"]), \
+					float(row["longitude"]), \
+					float(row["course_over_ground"]), \
+					float(row["true_heading"]), \
+					int(float(row["ts"])), \
+					int(float(row["mmsi"]))]
+					data.append(trajectory_point)
+
+	return np.asarray(data)
+
+
+def writeDataToCSVWithMMSI(data, path, file_name):
+	"""
+	file_name: string of name of file, without .csv suffix
+	"""
+	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
+		fieldnames = ['navigation_status', 'rate_of_turn', 'speed_over_ground', 'latitude', 'longitude', 'course_over_ground', 'true_heading','ts', 'ts_string', 'mmsi']
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+	
+		for i in range (0, data.shape[0]):
+			writer.writerow({'navigation_status': data[i][utils.dataDict['navigation_status']], 
+				'rate_of_turn':data[i][utils.dataDict['rate_of_turn']], 
+				'speed_over_ground':data[i][utils.dataDict['speed_over_ground']], 
+				'latitude':data[i][utils.dataDict['latitude']], 
+				'longitude':data[i][utils.dataDict['longitude']], 
+				'course_over_ground':data[i][utils.dataDict['course_over_ground']], 
+				'true_heading':data[i][utils.dataDict['true_heading']], 
+				'ts':data[i][utils.dataDict['ts']],
+				'ts_string':datetime.datetime.fromtimestamp(data[i][utils.dataDict['ts']]).strftime('%Y-%m-%dT%H:%M:%SZ'),
+				'mmsi': data[i][utils.dataDict['mmsi']]
+				})
+
+	return
 
 
 

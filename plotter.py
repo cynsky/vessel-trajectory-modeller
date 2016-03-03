@@ -28,7 +28,7 @@ def getSpeedAccelerations(data):
 	timeAxis = [] # time axis in seconds
 	startTime = data[0][utils.dataDict["ts"]]
 	distanceAxis = []
-	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longtitude"]]]
+	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longitude"]]]
 	for i in range (1, len(data)):
 		curSpeed = data[i][utils.dataDict["speed_over_ground"]]
 		prevSpeed = data[i-1][utils.dataDict["speed_over_ground"]]
@@ -39,7 +39,7 @@ def getSpeedAccelerations(data):
 			continue
 		accelerations.append((utils.convertKnotToMeterPerSec(curSpeed) - utils.convertKnotToMeterPerSec(prevSpeed))/float(dt_secs))
 		timeAxis.append(data[i][utils.dataDict["ts"]] - startTime)
-		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
+		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longitude"]])],2))
 
 
 	accelerations = np.asarray(accelerations)
@@ -55,11 +55,11 @@ def getSpeeds(data):
 	startTime = data[0][utils.dataDict["ts"]]
 	distanceAxis = []
 	distanceAxis.append(0)
-	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longtitude"]]]
+	startPoint = [data[0][utils.dataDict["latitude"]], data[0][utils.dataDict["longitude"]]]
 	for i in range(1, len(data)):
 		dt_secs = data[i][utils.dataDict["ts"]] - startTime
 		timeAxis.append(dt_secs)
-		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longtitude"]])],2))
+		distanceAxis.append(np.linalg.norm([utils.LatLonToXY(startPoint[0],startPoint[1], data[i][utils.dataDict["latitude"]], data[i][utils.dataDict["longitude"]])],2))
 	
 	i = 0
 	while(i < len(speeds)):
@@ -127,8 +127,8 @@ def plotTrajectoryProfiles(pathToSave, folderName, trajectories, origin, end, sa
 
 	for i in range(0, len(trajectories)):
 		last_point_in_trajectory = trajectories[i][len(trajectories[i]) -1]
-		# end[0] is end latitude, end[1] is end longtitude
-		if(utils.nearOrigin(end[0],end[1],last_point_in_trajectory[utils.dataDict["latitude"]], last_point_in_trajectory[utils.dataDict["longtitude"]])): # only plot profile for those trajectories between origin and end		
+		# end[0] is end latitude, end[1] is end longitude
+		if(utils.nearOrigin(end[0],end[1],last_point_in_trajectory[utils.dataDict["latitude"]], last_point_in_trajectory[utils.dataDict["longitude"]])): # only plot profile for those trajectories between origin and end		
 			# 1. acceleration profile from start point to end point
 			accelerations, timeAxis, distanceAxis = getSpeedAccelerations(trajectories[i], utils.dataDict)
 			plt.scatter(distanceAxis, accelerations, label = "trajectory_acceleration_profile_{i}".format(i = i))
