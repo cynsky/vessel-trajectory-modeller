@@ -230,6 +230,7 @@ def isErrorTrajectory(trajectory, center_lat_sg, center_lon_sg):
 
 def removeErrorTrajectoryFromList(trajectories, center_lat_sg = 1.2, center_lon_sg = 103.8):
 	"""
+	note: list object passing to function will be by reference, while using np.delete(), returns a new copy thus need to return
 	trajectories: normal trajectories with lat and lon
 	return: the list of trajectories with error ones removed
 	"""
@@ -243,6 +244,190 @@ def removeErrorTrajectoryFromList(trajectories, center_lat_sg = 1.2, center_lon_
 		else:
 			i += 1
 	return trajectories
+
+
+def endPointMatchTrajectoryCentroid(endpoint, centroid, reference_lat, reference_lon):
+	assert (len(centroid) > 0), "cluster centroid must be non empty"
+	x, y = utils.LatLonToXY(reference_lat,reference_lon,endpoint[utils.dataDict["latitude"]], endpoint[utils.dataDict["longitude"]])
+	centroid_start_x = centroid[0][utils.data_dict_x_y_coordinate["x"]]
+	centroid_start_y = centroid[0][utils.data_dict_x_y_coordinate["y"]]
+	if (np.linalg.norm([x - centroid_start_x, y - centroid_start_y], 2) < 20 * utils.NEIGHBOURHOOD_ENDPOINT):
+		return True
+	else:
+		return False
+
+
+def endPointsToRepresentativeTrajectoryMapping(endpoints, trajectories, cluster_label, reference_lat, reference_lon):
+	"""
+	trajectories: in XY coordinate by reference_lat, reference_lon
+	endpoints: in lat, lon
+	"""
+	endpoints_cluster_dict = {}
+	class_trajectories_dict = clustering_worker.formClassTrajectoriesDict(cluster_label = cluster_label, data = trajectories)
+	cluster_centroids_dict = {}
+	for class_label, trajectories in class_trajectories_dict.iteritems():
+		cluster_centroids_dict[class_label] =clustering_worker.getMeanTrajecotoryWithinClass(trajectories)
+
+	for endpoint in endpoints:
+		if (not "{lat}_{lon}".format(lat = endpoint[utils.dataDict["latitude"]], \
+				lon = endpoint[utils.dataDict["longitude"]]) in endpoints_cluster_dict):
+			endpoints_cluster_dict["{lat}_{lon}".format(lat = endpoint[utils.dataDict["latitude"]], \
+				lon = endpoint[utils.dataDict["longitude"]])] = []
+		for cluster, centroid in cluster_centroids_dict.iteritems():
+			if (endPointMatchTrajectoryCentroid(endpoint, centroid, reference_lat, reference_lon)):
+				endpoints_cluster_dict["{lat}_{lon}".format(lat = endpoint[utils.dataDict["latitude"]], \
+				lon = endpoint[utils.dataDict["longitude"]])].append(utils.ClusterCentroidTuple(cluster = cluster, centroid = centroid))
+
+	return endpoints_cluster_dict
+
+
+def lookForEndPoints(endpoints, endpoint_str):
+	for endpoint in endpoints:
+		if ("{lat}_{lon}".format(lat = endpoint[utils.dataDict["latitude"]], \
+				lon = endpoint[utils.dataDict["longitude"]]) == endpoint_str):
+			return endpoint
+	return None
+
+def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, reference_lon):
+	# fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints"
+	# fname = "10_tankers_dissimilarity_l2_inconsistent_refined_endpoints"
+	# fname = "10_tankers_dissimilarity_l2_inconsistent"
+	# fname = "10_tankers_dissimilarity_l2_all_K"
+	# fname = "10_tankers_dissimilarity_center_mass"
+	# fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance_cleaned"
+	fname = "10_tankers_dissimilarity_center_mass_inconsistent_cleaned"
+
+	opt_cluster_label , cluster_labels, CH_indexes = clustering_worker.clusterTrajectories( \
+		trajectories  = all_OD_trajectories_XY, \
+		fname = fname, \
+		path = utils.queryPath("tankers/cluster_result/{folder}".format(folder = fname)), \
+		metric_func = clustering_worker.trajectoryDissimilarityL2, \
+		# metric_func = clustering_worker.trajectoryDissimilarityCenterMass, \
+		# user_distance_matrix = writeToCSV.loadData(root_folder + \
+			# "/cluster_result/10_tankers_dissimilarity_center_mass/10_tankers_dissimilarity_center_mass_cleaned.npz")
+		user_distance_matrix = writeToCSV.loadData(root_folder + \
+			"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned.npz")
+		# user_distance_matrix = writeToCSV.loadData(root_folder + \
+			# "/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints.npz")
+		)
+	print "opt_cluster_label:", opt_cluster_label
+	print "opt_num_cluster:", len(set(opt_cluster_label))
+
+
+
+	# print "distance between 1 and 4, should be quite small:", clustering_worker.trajectoryDissimilarityL2( \
+	# 	all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
+	# print "distance between 0 and 4, should be quite large:", clustering_worker.trajectoryDissimilarityL2( \
+	# 	all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
+	# print "center of mass measure distance between 1 and 4, should be quite small:", clustering_worker.trajectoryDissimilarityCenterMass( \
+	# 	all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
+	# print "center of mass measure distance between 0 and 4, should be quite large:", clustering_worker.trajectoryDissimilarityCenterMass( \
+	# 	all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
+	# print "matrix:\n", clustering_worker.getTrajectoryDistanceMatrix(\
+	# 	all_OD_trajectories_XY, \
+	# 	metric_func = clustering_worker.trajectoryDissimilarityL2)
+	# plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "")
+	"""Construct the endpoints to representative trajectory mapping"""
+	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	endpoints = None
+	for filename in filenames:
+		this_vessel_endpoints = writeToCSV.readDataFromCSV( \
+		root_folder + "/endpoints", \
+		"{filename}_endpoints.csv".format(filename = filename))
+
+		# Append to the total end points
+		if(endpoints is None):
+			endpoints = this_vessel_endpoints
+		else:
+			endpoints = np.concatenate((endpoints, this_vessel_endpoints), axis=0)
+
+	cluster_centroids = clustering_worker.getClusterCentroids(opt_cluster_label, all_OD_trajectories_XY)
+	cluster_centroids_lat_lon = {}
+	for cluster_label, centroid in cluster_centroids.iteritems():
+		cluster_centroids_lat_lon[cluster_label] = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
+			[copy.deepcopy(centroid)])[0]
+	# flatten
+	cluster_centroids_lat_lon_flattened = [point for cluster_label, centroid in cluster_centroids_lat_lon.iteritems() \
+	for point in centroid]
+	writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon_flattened), root_folder + "/cleanedData", \
+		"centroids_10_tankers_dissimilarity_l2_cophenetic_distance_cleaned")
+
+	"""DEBUGGING"""
+	point_to_examine = (1.2625833, 103.6827)
+	point_to_examine_XY = utils.LatLonToXY(reference_lat,reference_lon,point_to_examine[0], point_to_examine[1])
+	augmented_trajectories_from_point_to_examine_index = []
+	augmented_trajectories_from_point_to_examine = []
+	for i in range(0, len(all_OD_trajectories_XY)):
+		trajectory = all_OD_trajectories_XY[i]
+		if (np.linalg.norm([ \
+			point_to_examine_XY[0] - trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
+			point_to_examine_XY[1] - trajectory[0][utils.data_dict_x_y_coordinate["y"]]], 2) < 0.1):
+			augmented_trajectories_from_point_to_examine_index.append(i)
+			augmented_trajectories_from_point_to_examine.append(trajectory)
+			print "augmented_trajectories_from_point_to_examine_index:", augmented_trajectories_from_point_to_examine_index, \
+			"starting pos:", trajectory[0][utils.data_dict_x_y_coordinate["x"]], trajectory[0][utils.data_dict_x_y_coordinate["y"]] 
+	print "augmented_trajectories_from_point_to_examine_index:", augmented_trajectories_from_point_to_examine_index
+
+
+
+	augmented_trajectories_from_point_to_examine = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, copy.deepcopy(augmented_trajectories_from_point_to_examine))
+	for t in range(0, len(augmented_trajectories_from_point_to_examine)):
+		writeToCSV.writeDataToCSV(np.asarray(augmented_trajectories_from_point_to_examine[t]), root_folder + "/cleanedData/DEBUGGING", \
+		"DEBUGGING_augmented_{t}".format(t = augmented_trajectories_from_point_to_examine_index[t]))
+
+
+	augmented_trajectories_from_point_to_examine_clusters = []
+	for i in augmented_trajectories_from_point_to_examine_index:
+		augmented_trajectories_from_point_to_examine_clusters.append(opt_cluster_label[i])
+	augmented_trajectories_from_point_to_examine_clusters_unique = list(set(augmented_trajectories_from_point_to_examine_clusters))
+
+
+	class_trajectories_dict = clustering_worker.formClassTrajectoriesDict(opt_cluster_label, all_OD_trajectories_XY)
+
+	for i in augmented_trajectories_from_point_to_examine_clusters_unique:
+		writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[i]), root_folder + "/cleanedData/DEBUGGING", \
+		"DEBUGGING_centroid_{i}".format(i = i))
+		print "cluster_centroids[{i}], starting point:".format(i = i), cluster_centroids[i][0]
+
+		"""save all trajectories under this cluster i """
+		class_trajectories = class_trajectories_dict[i]
+		class_trajectories_lat_lon = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, copy.deepcopy(class_trajectories))
+		for j in range(0, len(class_trajectories_lat_lon)):
+			print "class_trajectories[{i}], starting point:".format(i = i), class_trajectories[j][0]
+			writeToCSV.writeDataToCSV(np.asarray(class_trajectories_lat_lon[j]), \
+				utils.queryPath(root_folder + "/cleanedData/DEBUGGING/CLASS{i}".format(i = i)) , \
+				"DEBUGGING_class_{i}_trajectory_{j}".format(i = i , j = j))
+
+	"""END DEBUGGING"""
+
+
+	endpoints_cluster_dict = endPointsToRepresentativeTrajectoryMapping(\
+		endpoints, \
+		all_OD_trajectories_XY , \
+		opt_cluster_label, \
+		reference_lat, \
+		reference_lon)
+
+	empty_endpoints = []
+	for endpoint_str, endpoint_tuple_list in endpoints_cluster_dict.iteritems():
+		endpoint_starting_clusters = [item.cluster for item in endpoint_tuple_list]
+
+		if (len(endpoint_starting_clusters) == 0):
+			this_empty_endpoint = lookForEndPoints(endpoints, endpoint_str)
+			if (this_empty_endpoint is None):
+				raise ValueError("Error! should always be able to map back endpoints, but {p} is not found".format(p = endpoint_str))
+			empty_endpoints.append(this_empty_endpoint)
+
+		# print endpoint_str, ":", [item.cluster for item in endpoint_tuple_list]
+
+	print "number of endpoints that do not have clusters assigned to:", len(empty_endpoints)
+	print "total number of endpoints:", len(endpoints)
+	writeToCSV.writeDataToCSV(np.asarray(empty_endpoints), root_folder + "/cleanedData", \
+		"non_starting_endpoints_10_tankers_dissimilarity_l2_cophenetic_distance_cleaned")
+	writeToCSV.saveData([endpoints_cluster_dict], \
+		filename = root_folder + "/cleanedData" + "/endpoints_cluster_dict_10_tankers_dissimilarity_l2_cophenetic_distance_cleaned")
+
+
 
 def main():
 	root_folder = "tankers"
@@ -276,6 +461,25 @@ def main():
 
 	# raise ValueError("purpose stop for computing min distance between vessels")
 
+	"""
+	Test Clustering
+	"""
+	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_with_1D_data_refined.npz")
+	trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
+	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
+	print trajectories_to_cluster.shape
+	
+	print type(trajectories_to_cluster)
+	print len(trajectories_to_cluster)
+	trajectories_to_cluster = list(trajectories_to_cluster)
+	# convert Lat, Lon to XY for displaying
+	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, trajectories_to_cluster)
+	executeClustering(root_folder = root_folder, \
+		all_OD_trajectories_XY = all_OD_trajectories_XY, \
+		reference_lat = utils.CENTER_LAT_SG, \
+		reference_lon = utils.CENTER_LON_SG)
+	raise ValueError("purpose stop for testing clustering")
+
 
 	"""
 	plot out the value space of the features, speed, accelerations, etc, for the aggregateData
@@ -283,15 +487,16 @@ def main():
 	# filename = "aggregateData.npz"
 	# path = "tankers/cleanedData"
 	# data = writeToCSV.loadArray("{p}/{f}".format(p = path, f=filename))
-	# plotter.plotFeatureSpace(data, utils.dataDict)
+	# for trajectory in trajectories_to_cluster:
+		# plotter.plotFeatureSpace(trajectory)
 	# raise ValueError("For plotting feature space only")
 
 	"""
 	Extract endpoints;
 	TODO: Further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
 	"""
-	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
-	filenames = ["9664225.csv"]
+	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# filenames = ["9664225.csv"]
 	# filenames = ["8514019.csv"]
 	endpoints = None
 	all_OD_trajectories = []
@@ -383,58 +588,21 @@ def main():
 	save the augmented trajectories between endpoints as npz data file
 	"""
 	# remove error trajectories that are too far from Singapore
-	writeToCSV.saveData(removeErrorTrajectoryFromList(all_OD_trajectories), root_folder + "/all_OD_trajectories_with_1D_data")
+	all_OD_trajectories = removeErrorTrajectoryFromList(all_OD_trajectories)
+	writeToCSV.saveData(all_OD_trajectories, root_folder + "/all_OD_trajectories_with_1D_data")
 	# convert Lat, Lon to XY for displaying
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories)
-	plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = True, fname = "tanker_all_OD_trajectories")
+	plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = False, clean = True, save = True, fname = "tanker_all_OD_trajectories")
 
 
 	"""
-	Test Clustering
+	Execute Clustering
 	"""
-	# # trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories.npz")
-	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
-	# print trajectories_to_cluster.shape
-	# # trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
-	# print type(trajectories_to_cluster)
-	# print len(trajectories_to_cluster)
-	# trajectories_to_cluster = list(trajectories_to_cluster)
-	# # convert Lat, Lon to XY for displaying
-	# all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, trajectories_to_cluster)
+	executeClustering(root_folder = root_folder, \
+		all_OD_trajectories_XY = all_OD_trajectories_XY, \
+		reference_lat = utils.CENTER_LAT_SG, \
+		reference_lon = utils.CENTER_LON_SG)
 
-	# fname = "10_tankers_dissimilarity_l2_cophenetic_distance_cleaned"
-	# # fname = "10_tankers_dissimilarity_l2_inconsistent"
-	# # fname = "10_tankers_dissimilarity_l2_all_K"
-	# # fname = "10_tankers_dissimilarity_center_mass"
-	# # fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance"
-	# # fname = "tanker_9664225_dissimilarity_center_mass"
-
-	# opt_cluster_label , cluster_labels, CH_indexes = clustering_worker.clusterTrajectories( \
-	# 	trajectories  = all_OD_trajectories_XY, \
-	# 	fname = fname, \
-	# 	path = utils.queryPath("tankers/cluster_result/{folder}".format(folder = fname)), \
-	# 	metric_func = clustering_worker.trajectoryDissimilarityL2, \
-	# 	# user_distance_matrix = writeToCSV.loadData(root_folder + \
-	# 	# 	"/cluster_result/10_tankers_dissimilarity_center_mass/10_tankers_dissimilarity_center_mass_cleaned.npz")
-	# 	user_distance_matrix = writeToCSV.loadData(root_folder + \
-	# 		"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned.npz")
-	# 	)
-	# print "opt_cluster_label:", opt_cluster_label
-	# print "opt_num_cluster:", len(set(opt_cluster_label))
-
-	# # print "distance between 1 and 4, should be quite small:", clustering_worker.trajectoryDissimilarityL2( \
-	# # 	all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
-	# # print "distance between 0 and 4, should be quite large:", clustering_worker.trajectoryDissimilarityL2( \
-	# # 	all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
-	# # print "center of mass measure distance between 1 and 4, should be quite small:", clustering_worker.trajectoryDissimilarityCenterMass( \
-	# # 	all_OD_trajectories_XY[1], all_OD_trajectories_XY[4])
-	# # print "center of mass measure distance between 0 and 4, should be quite large:", clustering_worker.trajectoryDissimilarityCenterMass( \
-	# # 	all_OD_trajectories_XY[0], all_OD_trajectories_XY[4])
-	# # print "matrix:\n", clustering_worker.getTrajectoryDistanceMatrix(\
-	# # 	all_OD_trajectories_XY, \
-	# # 	metric_func = clustering_worker.trajectoryDissimilarityL2)
-	# # plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "")
-	# raise ValueError("purpose stop of the testing clustering procedure")
 
 if __name__ == "__main__":
 	main()

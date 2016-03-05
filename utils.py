@@ -19,6 +19,7 @@ import scipy.cluster.hierarchy as HAC
 import random
 from sklearn import metrics
 import operator
+from collections import namedtuple
 
 """
 CONSTANTS
@@ -69,6 +70,12 @@ MAX_FLOAT = sys.float_info.max
 MAX_DISTANCE_FROM_SG = 100 # 100 km
 
 BOUNDARY_TIME_DIFFERENCE = 7 * 3600
+
+UNKNOWN_COURSE_OVER_GROUND = 3600
+
+SpeedDistanceTuple = namedtuple('SpeedDistanceTuple', ['speed', 'distance'])
+
+ClusterCentroidTuple = namedtuple('ClusterCentroidTuple', ['cluster', 'centroid'])
 
 
 def queryPath(path):

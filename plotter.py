@@ -81,7 +81,7 @@ def getAngularSpeeds(data):
 		dt_secs = data[i][utils.dataDict["ts"]] - startTime
 		timeAxis.append(dt_secs)
 
-	print angularSpeeds.shape
+	print "angularSpeeds.shape:", angularSpeeds.shape
 	i = 0
 	while(i < len(angularSpeeds)):
 		if(angularSpeeds[i] == 128 or angularSpeeds[i] == -128): # remove the not available ones
@@ -92,33 +92,44 @@ def getAngularSpeeds(data):
 	return angularSpeeds, timeAxis
 
 def plotFeatureSpace(data):
+	"""
+	data: one trajectory
+	returns: plots the speed, accelerations, turning rate along this trajectory
+	"""
 	num_bins = 50
 	#1. plot out the acceleration profile
 	accelerations, _ , _= getSpeedAccelerations(data);
-	print accelerations.shape
-	print np.amax(accelerations)
-	print np.amin(accelerations)
-	# plt.plot(accelerations)
-	plt.hist(accelerations, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.ylabel('Relative frequency')
-	plt.xlabel('Acceleration Profile')
-	plt.show()
+	print "accelerations.shape:", accelerations.shape
+	if (len(accelerations) > 0):
+		print np.amax(accelerations)
+		print np.amin(accelerations)
+		# plt.plot(accelerations)
+		plt.hist(accelerations, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
+		plt.ylabel('Relative frequency')
+		plt.xlabel('Acceleration Profile')
+		plt.show()
 
 	#2. plot out the speed profile
-	speeds, _ , _= getSpeeds(data)
-	print np.amax(speeds)
-	print np.amin(speeds)
-	plt.hist(speeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.xlabel("speeds profile")
-	plt.show()
+	speeds, time_axis , distance_axis = getSpeeds(data)
+	if (len(speeds) > 0):
+		print np.amax(speeds)
+		print np.amin(speeds)
+		plt.hist(speeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
+		plt.xlabel("speeds profile")
+		plt.show()
+
+		plt.scatter(distance_axis, speeds)
+		plt.xlabel("speed VS distance from origin")
+		plt.show()
 
 	#3. plot out the turning rate profile
 	angularSpeeds, _ = getAngularSpeeds(data)
-	print np.amax(angularSpeeds)
-	print np.amin(angularSpeeds)
-	plt.hist(angularSpeeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
-	plt.xlabel("Angular speeds profile")
-	plt.show()
+	if (len(angularSpeeds) > 0):
+		print np.amax(angularSpeeds)
+		print np.amin(angularSpeeds)
+		plt.hist(angularSpeeds, num_bins, normed= True, facecolor='green', alpha=0.5, stacked = True)
+		plt.xlabel("Angular speeds profile")
+		plt.show()
 	return
 
 def plotTrajectoryProfiles(pathToSave, folderName, trajectories, origin, end, savefig = True,showfig = True):

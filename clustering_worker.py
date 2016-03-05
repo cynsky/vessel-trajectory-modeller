@@ -182,18 +182,26 @@ def formClassTrajectoriesDict(cluster_label, data):
 		class_trajectories_dict[class_label].append(data[i])
 	return class_trajectories_dict
 
+def getClusterCentroids(cluster_label, data):
+	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
+	class_trajectories_dict = formClassTrajectoriesDict(cluster_label, data)
+	centroids = {}
+	for class_label, trajectories in class_trajectories_dict.iteritems():
+		centroids[class_label] = getMeanTrajecotoryWithinClass(trajectories)
+	return centroids
+
 def plotRepresentativeTrajectory(cluster_label, data, fname = "", path = "", show = False):
 	"""
 	cluster_label: length n
 	data: length n, needs to be in X, Y coordinate
 	plots the cluster centroids of the current clustering
 	"""
-	assert len(cluster_label) == len(data), "data and cluster_label length should be the same"
-	class_trajectories_dict = formClassTrajectoriesDict(cluster_label, data)
-	centroids = []
-	for class_label, trajectories in class_trajectories_dict.iteritems():
-		centroids.append(getMeanTrajecotoryWithinClass(trajectories))
-	plotter.plotListOfTrajectories(centroids, show = show, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
+	centroids = getClusterCentroids(cluster_label, data)
+	centroids_arr = []
+	for class_label, centroid in centroids.iteritems():
+		centroids_arr.append(centroid)
+	plotter.plotListOfTrajectories(centroids_arr, show = show, clean = True, save = (fname != "" and path != ""), fname = fname, path = path)
+
 
 def getMeanTrajecotoryPointAtIndex(trajectories, index):
 	"""
@@ -252,8 +260,8 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
 
-	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.0, criterion='inconsistent')
-	this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.0 * 1000, criterion='distance') # distance for l2 measure
+	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 0.8, criterion='inconsistent')
+	this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1 * 1000, criterion='distance') # distance for l2 measure
 	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.5, criterion='distance') # distance for center of mass measure
 	print "this_cluster_label:", this_cluster_label, "number of clusters:", len(set(this_cluster_label))
 

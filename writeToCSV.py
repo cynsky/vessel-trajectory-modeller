@@ -106,6 +106,7 @@ def writeDataToCSVWithMMSI(data, path, file_name):
 
 def writeDataToCSV(data, path, file_name):
 	"""
+	path: without trailing '/'
 	file_name: string of name of file, without .csv suffix
 	"""
 	# print path + "/" +npz_file_name[:npz_file_name.find(".")]+ ".csv"
@@ -152,10 +153,15 @@ def main():
 	# 	filename = fileNames[i]
 	# 	writeNpzToCSV(path = path , npz_file_name = filename)
 
-	path = "cleanedData"
-	writeNpzToCSV(path = path, npz_file_name = "1000019.npz")
-	writeNpzToCSV(path = path, npz_file_name = "3916119.npz")
-	writeNpzToCSV(path = path, npz_file_name = "9261126.npz")
+	# path = "cleanedData"
+	# writeNpzToCSV(path = path, npz_file_name = "1000019.npz")
+	# writeNpzToCSV(path = path, npz_file_name = "3916119.npz")
+	# writeNpzToCSV(path = path, npz_file_name = "9261126.npz")
+	root_folder = "tankers"
+	list_of_trajectories = loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
+	flattened_trajectory_points = np.array([point for trajectory in list_of_trajectories for point in trajectory])
+	writeDataToCSV(data = flattened_trajectory_points, path = root_folder , file_name = "all_OD_trajectories_cleaned")
+	
 	return
 
 if __name__ == "__main__":
