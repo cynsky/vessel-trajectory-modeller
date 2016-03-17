@@ -239,7 +239,7 @@ def getTrajectoryDistanceMatrix(trajectories, metric_func = trajectoryDissimilar
 			distance_matrix[j][i] = distance_matrix[i][j]
 	return distance_matrix
 			
-def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2, user_distance_matrix = None):
+def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissimilarityL2, user_distance_matrix = None, criterion = 'distance'):
 	"""
 	trajectories: the trajectories need to be in XY coordinates
 	"""
@@ -260,9 +260,14 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = plot_path))
 	plt.show()
 
-	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 0.8, criterion='inconsistent')
-	this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1 * 1000, criterion='distance') # distance for l2 measure
-	# this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.5, criterion='distance') # distance for center of mass measure
+	if (criterion == 'distance'):
+		if (metric_func == trajectoryDissimilarityL2):
+			this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1 * 1000, criterion='distance') # distance for l2 measure
+		elif (metric_func == trajectoryDissimilarityCenterMass):
+			this_cluster_label = HAC.fcluster(Z= cluster_result, t= 1.5, criterion='distance') # distance for center of mass measure
+	elif (criterion == 'inconsistent'):
+		this_cluster_label = HAC.fcluster(Z= cluster_result, t= 0.8, criterion='inconsistent')
+	
 	print "this_cluster_label:", this_cluster_label, "number of clusters:", len(set(this_cluster_label))
 
 	"""Plot the representative trajectories"""
