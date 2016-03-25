@@ -133,6 +133,7 @@ def main():
 		else:
 			aggregateData = np.concatenate((aggregateData, data), axis=0)
 		# writeToCSV.saveArray(data, "{foldername}/{f}".format(foldername = foldername, f = filename[0:filename.find(".")]))
+		writeToCSV.writeDataToCSVWithMMSI(data, path = foldername, file_name = filename[0:filename.find(".")])
 	
 	print "aggregateData.shape:", aggregateData.shape
 	# writeToCSV.saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))

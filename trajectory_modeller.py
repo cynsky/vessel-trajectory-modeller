@@ -261,6 +261,7 @@ def endPointsToRepresentativeTrajectoryMapping(endpoints, trajectories, cluster_
 	"""
 	trajectories: in XY coordinate by reference_lat, reference_lon
 	endpoints: in lat, lon
+	cluster_label: array of cluster label w.r.t array of trajectories, starting with cluster index 1
 	"""
 	endpoints_cluster_dict = {}
 	class_trajectories_dict = clustering_worker.formClassTrajectoriesDict(cluster_label = cluster_label, data = trajectories)
@@ -276,7 +277,7 @@ def endPointsToRepresentativeTrajectoryMapping(endpoints, trajectories, cluster_
 		for cluster, centroid in cluster_centroids_dict.iteritems():
 			if (endPointMatchTrajectoryCentroid(endpoint, centroid, reference_lat, reference_lon)):
 				endpoints_cluster_dict["{lat}_{lon}".format(lat = endpoint[utils.dataDict["latitude"]], \
-				lon = endpoint[utils.dataDict["longitude"]])].append(utils.ClusterCentroidTuple(cluster = cluster, centroid = centroid))
+				lon = endpoint[utils.dataDict["longitude"]])].append(utils.ClusterCentroidTuple(cluster = cluster - 1, centroid = centroid)) # offset by 1
 
 	return endpoints_cluster_dict
 
@@ -340,9 +341,9 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
 	endpoints = None
 	for filename in filenames:
-		this_vessel_endpoints = writeToCSV.readDataFromCSV( \
+		this_vessel_endpoints = writeToCSV.readDataFromCSVWithMMSI( \
 		root_folder + "/endpoints", \
-		"{filename}_endpoints.csv".format(filename = filename))
+		"{filename}_endpoints.csv".format(filename = filename[:filename.find(".")]))
 
 		# Append to the total end points
 		if(endpoints is None):
@@ -355,13 +356,16 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	for cluster_label, centroid in cluster_centroids.iteritems():
 		cluster_centroids_lat_lon[cluster_label] = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
 			[copy.deepcopy(centroid)])[0]
+		# writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[cluster_label]), root_folder + "/cleanedData/DEBUGGING", \
+		# "refined_centroid_{i}".format(i = cluster_label))
+
 	# flatten
 	cluster_centroids_lat_lon_flattened = [point for cluster_label, centroid in cluster_centroids_lat_lon.iteritems() \
 	for point in centroid]
 	writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon_flattened), root_folder + "/cleanedData", \
 		"centroids_" + fname)
 
-	"""DEBUGGING"""
+	"""DEBUGGING,using unrefined data"""
 	# point_to_examine = (1.2625833, 103.6827)
 	# point_to_examine_XY = utils.LatLonToXY(reference_lat,reference_lon,point_to_examine[0], point_to_examine[1])
 	# augmented_trajectories_from_point_to_examine_index = []
@@ -418,6 +422,17 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		reference_lon)
 
 	empty_endpoints = []
+	augmented_index_to_extra_label_mapping = {} # mapping from normal index to appended index in all_protocol_trajectories
+	cluster_label_to_cluster_size = {} # 'cluster size' of the appended augmented trajectory in all_protocol_trajectories
+	
+	all_protocol_trajectories = [] # indexed by cluster label (offset by 1, cluster 1 -> all_protocol_trajectories[0])
+	for label in range(np.min(opt_cluster_label), np.max(opt_cluster_label) + 1):
+		assert (label in cluster_centroids_lat_lon), "{label} is supposed to be in the cluster_centroids_lat_lon dict".format(label = label)
+		all_protocol_trajectories.append(cluster_centroids_lat_lon[label])
+		cluster_label_to_cluster_size[label - 1] = len(np.where(opt_cluster_label == label)[0])
+	assert(np.sum([size for label, size in cluster_label_to_cluster_size.iteritems()]) == len(opt_cluster_label)), "sum of individual label size should == total count"
+
+	DEBUG_APPEND_INDEXS = []
 	for endpoint_str, endpoint_tuple_list in endpoints_cluster_dict.iteritems():
 		endpoint_starting_clusters = [item.cluster for item in endpoint_tuple_list] # get the list of cluster_labels of centroids to a certain endpoint
 
@@ -444,17 +459,57 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 					# "starting pos:", \
 					# trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
 					# trajectory[0][utils.data_dict_x_y_coordinate["y"]] 
-			print "all indexes for this_empty_endpoint:", augmented_trajectories_from_point_to_examine_index
+			print "all indexes (w.r.t all_OD_trajectories_XY) for this_empty_endpoint:", augmented_trajectories_from_point_to_examine_index
 
-		# print endpoint_str, ":", endpoint_starting_clusters
+			DEBUG_APPEND_INDEXS.append(augmented_trajectories_from_point_to_examine_index)
+
+			"""Append augmented_trajectories_from_point_to_examine to end of array of centroids and give extra label"""
+			for augmented_index in augmented_trajectories_from_point_to_examine_index:
+				if (not augmented_index in augmented_index_to_extra_label_mapping): 
+					# if this normal trajectory is not appened, append it and mark in the augmented_index_to_extra_label_mapping
+					augmented_index_to_extra_label_mapping[augmented_index] = len(all_protocol_trajectories)
+					cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] = 1
+					all_protocol_trajectories.append(\
+						convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
+							[copy.deepcopy(all_OD_trajectories_XY[augmented_index])])[0])
+				else:
+					cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] += 1
+
+				endpoints_cluster_dict[endpoint_str].append(utils.ClusterCentroidTuple(\
+					cluster = augmented_index_to_extra_label_mapping[augmented_index], \
+					centroid = all_protocol_trajectories[augmented_index_to_extra_label_mapping[augmented_index]]))
+
+	"""Asserting and Saving of info for Agent Based Simulator"""
+	assert (len(set([index for index_list in DEBUG_APPEND_INDEXS for index in index_list])) == \
+		len(all_protocol_trajectories) - len(set(opt_cluster_label))), \
+	"size of appended augmented trajectories should == len(DEBUG_APPEND_INDEXS)" 
+
+	for index in range(0, len(all_protocol_trajectories)):
+		assert(index in cluster_label_to_cluster_size), "all_protocol_trajectories's index mapping to cluster should be complete"
+	
+	for label, size in cluster_label_to_cluster_size.iteritems():
+		print "label, size:", label, size
 
 	print "number of endpoints that do not have clusters assigned to:", len(empty_endpoints)
 	print "total number of endpoints:", len(endpoints)
+	writeToCSV.writeDataToCSVWithMMSI(np.asarray(endpoints), root_folder + "/endpoints", "all_endpoints_with_MMSI")
 	writeToCSV.writeDataToCSV(np.asarray(empty_endpoints), root_folder + "/cleanedData", \
 		"non_starting_endpoints_10_tankers_dissimilarity_l2_cophenetic_distance_cleaned")
 	writeToCSV.saveData([endpoints_cluster_dict], \
 		filename = root_folder + "/cleanedData" + "/endpoints_cluster_dict" + fname)
 
+	"""Save related csv files for Agent Based Simulator"""
+	writeToCSV.writeAllProtocolTrajectories(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "protocol_trajectories_with_cluster_size", \
+		all_protocol_trajectories = all_protocol_trajectories, \
+		cluster_label_to_cluster_size = cluster_label_to_cluster_size)
+
+	writeToCSV.writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "endpoints_to_protocol_trajectories", \
+		endpoints = endpoints, \
+		endpoints_cluster_dict = endpoints_cluster_dict)
 
 
 def main():
@@ -473,21 +528,21 @@ def main():
 	# mmsi_set = compute_mindistance.getSetOfMMSI(data_with_mmsi_sorted)
 	# print mmsi_set
 	# print list(mmsi_set)
+
+	# raise ValueError("purpose stop for computing min distance between vessels")
 	# start_time = time.time()
 	# mmsi_list_dict, min_distance_matrix = compute_mindistance.computeVesselMinDistanceMatrix(data_with_mmsi_sorted, TIME_WINDOW = 1800)
 	# print "time spent:", time.time() - start_time
 	# writeToCSV.saveData([{ \
 	# 	'mmsi_list_dict': mmsi_list_dict, \
 	# 	'min_distance_matrix': min_distance_matrix \
-	# 	}], filename = root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_window_1800s")
+	# 	}], filename = root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec")
 	
-	# # min_distance_matrix_result = writeToCSV.loadData(root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi.npz")
-	# # print "min_distance_matrix_result:\n", min_distance_matrix_result, type(min_distance_matrix_result)
-	# # min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
-	# # print "min_distance_matrix loaded:\n", min_distance_matrix
-	# # print "min_distance_matrix min of 10 tankers:", np.min(min_distance_matrix)
-
-	# raise ValueError("purpose stop for computing min distance between vessels")
+	# min_distance_matrix_result = writeToCSV.loadData(root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi.npz")
+	# print "min_distance_matrix_result:\n", min_distance_matrix_result, type(min_distance_matrix_result)
+	# min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
+	# print "min_distance_matrix loaded:\n", min_distance_matrix
+	# print "min_distance_matrix min of 10 tankers:", np.min(min_distance_matrix)
 
 	"""
 	Test Clustering
@@ -531,12 +586,13 @@ def main():
 	
 	for i in range(0, len(filenames)):
 		this_vessel_trajectory_points = writeToCSV.readDataFromCSV(root_folder + "/cleanedData", filenames[i])
-		# Extract end points
-		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSV(root_folder + "/cleanedData", filenames[i])))
-		writeToCSV.writeDataToCSV( \
+		# Extract end points, along with MMSI
+		this_vessel_endpoints = np.asarray(extractEndPoints(writeToCSV.readDataFromCSVWithMMSI(root_folder + "/cleanedData", filenames[i])))
+		# Save end points, along with MMSI
+		writeToCSV.writeDataToCSVWithMMSI( \
 			this_vessel_endpoints, \
 			root_folder + "/endpoints", \
-			"{filename}_endpoints".format(filename = filenames[i]))
+			"{filename}_endpoints".format(filename = filenames[i][:filenames[i].find(".")]))
 		print "this_vessel_endpoints.shape:", this_vessel_endpoints.shape
 
 		# Append to the total end points
@@ -564,7 +620,7 @@ def main():
 				end_ts, \
 				endLatitude, \
 				endLongtitude, \
-				show = False, save = False, clean = False, \
+				show = False, save = True, clean = False, \
 				fname = filenames[i][:filenames[i].find(".")] + "_trajectory_between_endpoint{s}_and{e}".format(s = s, e = s + 1))
 				# there will be one trajectory between each OD		
 			assert (len(OD_trajectories) > 0), "OD_trajectories extracted must have length > 0"
@@ -608,12 +664,12 @@ def main():
 				print "no trajectories extracted between endpoints ", s , " and ", s + 1
 				plt.clf()
 
-	assert (not endpoints is None), "Error!: No endpoints extracted from the historial data of vessel" + filenames[i]
+	assert (not endpoints is None), "Error!: No endpoints extracted from the historial data of vessels" + "_".join(filenames)
 	print "Final endpoints.shape:", endpoints.shape
 	print "number of interpolated all_OD_trajectories:", len(all_OD_trajectories)
 
 	"""
-	save the augmented trajectories between endpoints as npz data file
+	save the augmented trajectories between endpoints as npz data file and the plot
 	"""
 	# remove error trajectories that are too far from Singapore
 	all_OD_trajectories = removeErrorTrajectoryFromList(all_OD_trajectories)

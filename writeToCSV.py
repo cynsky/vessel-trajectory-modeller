@@ -82,7 +82,17 @@ def writeDataToCSVWithMMSI(data, path, file_name):
 	file_name: string of name of file, without .csv suffix
 	"""
 	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
-		fieldnames = ['navigation_status', 'rate_of_turn', 'speed_over_ground', 'latitude', 'longitude', 'course_over_ground', 'true_heading','ts', 'ts_string', 'mmsi']
+		fieldnames = [\
+		'navigation_status', \
+		'rate_of_turn', \
+		'speed_over_ground', \
+		'latitude', \
+		'longitude', \
+		'course_over_ground', \
+		'true_heading',\
+		'ts', \
+		'ts_string', \
+		'mmsi']
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 		
 		writer.writeheader()
@@ -125,7 +135,16 @@ def writeDataToCSV(data, path, file_name):
 	# datetime.datetime.fromtimestamp(currentTS).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
-		fieldnames = ['navigation_status', 'rate_of_turn', 'speed_over_ground', 'latitude', 'longitude', 'course_over_ground', 'true_heading','ts', 'ts_string']
+		fieldnames = [\
+		'navigation_status', \
+		'rate_of_turn', \
+		'speed_over_ground', \
+		'latitude', \
+		'longitude', \
+		'course_over_ground', \
+		'true_heading',\
+		'ts', \
+		'ts_string']
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 		
 		writer.writeheader()
@@ -144,6 +163,84 @@ def writeDataToCSV(data, path, file_name):
 
 	return
 		
+def writeAllProtocolTrajectories(path, file_name, all_protocol_trajectories, cluster_label_to_cluster_size):
+	"""
+	file_name: string of name of file, without .csv suffix
+	all_protocol_trajectories: list of protocol trajectories
+	cluster_label_to_cluster_size: [all_protocol_trajectories's index : cluster size]
+	note: protocol trajectories does not contain timestamp info
+	"""
+
+	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
+		fieldnames = [\
+		'navigation_status', \
+		'rate_of_turn', \
+		'speed_over_ground', \
+		'latitude', \
+		'longitude', \
+		'course_over_ground', \
+		'true_heading',\
+		'cluster_size'
+		]
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+	
+		for i in range(0, len(all_protocol_trajectories)):
+			this_trajectory = all_protocol_trajectories[i]
+			for point in this_trajectory:
+				writer.writerow({'navigation_status': point[utils.dataDict['navigation_status']], 
+					'rate_of_turn':point[utils.dataDict['rate_of_turn']], 
+					'speed_over_ground':point[utils.dataDict['speed_over_ground']], 
+					'latitude':point[utils.dataDict['latitude']], 
+					'longitude':point[utils.dataDict['longitude']], 
+					'course_over_ground':point[utils.dataDict['course_over_ground']], 
+					'true_heading':point[utils.dataDict['true_heading']], 
+					'cluster_size':cluster_label_to_cluster_size[i]
+					})
+			writer.writerow({}) # write empty line between trajecotries to indicate start of new trajectory
+	return
+
+def writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(path, file_name, endpoints, endpoints_cluster_dict):
+	"""
+	file_name: string of name of file, without .csv suffix
+	endpoints: list of endpoints with mmsi
+	endpoints_cluster_dict: [endpoint string: [utils.ClusterCentroidTuple]]
+	"""
+	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
+		fieldnames = [\
+		'navigation_status', \
+		'rate_of_turn', \
+		'speed_over_ground', \
+		'latitude', \
+		'longitude', \
+		'course_over_ground', \
+		'true_heading',\
+		'ts', \
+		'ts_string', \
+		'mmsi',\
+		'protocol_trajectories']
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+	
+		for i in range (0, len(endpoints)):
+			writer.writerow({'navigation_status': endpoints[i][utils.dataDict['navigation_status']], 
+				'rate_of_turn':endpoints[i][utils.dataDict['rate_of_turn']], 
+				'speed_over_ground':endpoints[i][utils.dataDict['speed_over_ground']], 
+				'latitude':endpoints[i][utils.dataDict['latitude']], 
+				'longitude':endpoints[i][utils.dataDict['longitude']], 
+				'course_over_ground':endpoints[i][utils.dataDict['course_over_ground']], 
+				'true_heading':endpoints[i][utils.dataDict['true_heading']], 
+				'ts':endpoints[i][utils.dataDict['ts']],
+				'ts_string':datetime.datetime.fromtimestamp(endpoints[i][utils.dataDict['ts']]).strftime('%Y-%m-%dT%H:%M:%SZ'),
+				'mmsi': endpoints[i][utils.dataDict['mmsi']],
+				'protocol_trajectories': [ item.cluster for item in endpoints_cluster_dict[\
+				"{lat}_{lon}".format(\
+					lat = endpoints[i][utils.dataDict["latitude"]], \
+					lon = endpoints[i][utils.dataDict["longitude"]])] ]
+				})
+	return
 
 def main():
 	# path = "tankers/cleanedData"
