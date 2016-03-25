@@ -242,6 +242,50 @@ def writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(path, file_name, endpoin
 				})
 	return
 
+def writeVesselSpeedToDistance(path, file_name, vessel_distance_speed_dict):
+	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
+		fieldnames = [\
+		'id1', \
+		'id2', \
+		'relative_speed', \
+		'distance' \
+		]
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+	
+		for vessel_pair_string, tuple_list in vessel_distance_speed_dict.iteritems():
+			if (len(tuple_list) > 0):
+				for speed_distance_tuple in tuple_list:
+					writer.writerow({
+						'id1':vessel_pair_string[:vessel_pair_string.find("_")],
+						'id2':vessel_pair_string[vessel_pair_string.find("_") + 1:],
+						'relative_speed': speed_distance_tuple.speed,
+						'distance':speed_distance_tuple.distance
+					})
+				writer.writerow({}) # empty row indicating the start of new pair
+	return
+
+def writeVesselMinDistanceMatrix(path, file_name, mmsi_list_dict, min_distance_matrix):
+	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
+		fieldnames = [\
+		'id1', \
+		'id2', \
+		'min_distance'
+		]
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+		mmsi_list = [key for key, index in mmsi_list_dict.iteritems()]
+		for i in range(0, len(mmsi_list)):
+			for j in range (i + 1, len(mmsi_list)):
+				writer.writerow({
+					'id1':long(mmsi_list[i]),
+					'id2':long(mmsi_list[j]),
+					'min_distance': min_distance_matrix[mmsi_list_dict[long(mmsi_list[i])]][mmsi_list_dict[long(mmsi_list[j])]]
+				})
+	return
+
 def main():
 	# path = "tankers/cleanedData"
 	# # filename = "aggregateData.npz"

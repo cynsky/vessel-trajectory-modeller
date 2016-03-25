@@ -34,7 +34,7 @@ def computeVesselMinDistanceMatrix (data, TIME_WINDOW = 3600):
 	data: trajectory points with mmsi ids attached and sorted using ts
 	"""
 	mmsi_set = getSetOfMMSI(data)
-	mmsi_list_dict = {item: list(mmsi_set).index(item) for item in mmsi_set}
+	mmsi_list_dict = {item: list(mmsi_set).index(item) for item in mmsi_set} # dictionary of mmsi to its index in the list
 	print mmsi_list_dict
 	distance_matrix = np.zeros(shape = (len(mmsi_set), len(mmsi_set)))
 	vessel_distance_speed_dict = {} # [vesselid1_vesselid2: [SpeedDistanceTuple([distanace, relative_speed])]]
@@ -81,11 +81,12 @@ def computeVesselMinDistanceMatrix (data, TIME_WINDOW = 3600):
 
 						p_index = mmsi_list_dict[data[p][utils.dataDict["mmsi"]]]
 						q_index = mmsi_list_dict[data[q][utils.dataDict["mmsi"]]]
-						# record the distance in the dict
-						vessel_distance_speed_dict["{id1}_{id2}".format(\
-							id1 = long(min(data[p][utils.dataDict["mmsi"]], data[q][utils.dataDict["mmsi"]])) , \
-							id2 = long(max(data[p][utils.dataDict["mmsi"]], data[q][utils.dataDict["mmsi"]]))) ].append( \
-							utils.SpeedDistanceTuple(distance = this_distance, speed = np.linalg.norm([v_q - v_p], 2)))
+						# record the distance in the dict if close say, < 1km
+						if (this_distance < 1):
+							vessel_distance_speed_dict["{id1}_{id2}".format(\
+								id1 = long(min(data[p][utils.dataDict["mmsi"]], data[q][utils.dataDict["mmsi"]])) , \
+								id2 = long(max(data[p][utils.dataDict["mmsi"]], data[q][utils.dataDict["mmsi"]]))) ].append( \
+								utils.SpeedDistanceTuple(distance = this_distance, speed = np.linalg.norm([v_q - v_p], 2)))
 
 						if (this_distance < distance_matrix[p_index][q_index]):
 							distance_matrix[p_index][q_index] = this_distance
@@ -98,4 +99,7 @@ def computeVesselMinDistanceMatrix (data, TIME_WINDOW = 3600):
 		i = this_set_data_end_index
 
 	print "final min_distance_matrix:\n", distance_matrix
-	return mmsi_list_dict, distance_matrix
+	return mmsi_list_dict, distance_matrix, vessel_distance_speed_dict
+
+
+

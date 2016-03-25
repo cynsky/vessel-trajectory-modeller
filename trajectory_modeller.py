@@ -356,8 +356,8 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	for cluster_label, centroid in cluster_centroids.iteritems():
 		cluster_centroids_lat_lon[cluster_label] = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
 			[copy.deepcopy(centroid)])[0]
-		# writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[cluster_label]), root_folder + "/cleanedData/DEBUGGING", \
-		# "refined_centroid_{i}".format(i = cluster_label))
+		writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[cluster_label]), root_folder + "/cleanedData/DEBUGGING", \
+		"refined_centroid_{i}".format(i = cluster_label))
 
 	# flatten
 	cluster_centroids_lat_lon_flattened = [point for cluster_label, centroid in cluster_centroids_lat_lon.iteritems() \
@@ -529,20 +529,45 @@ def main():
 	# print mmsi_set
 	# print list(mmsi_set)
 
-	# raise ValueError("purpose stop for computing min distance between vessels")
 	# start_time = time.time()
-	# mmsi_list_dict, min_distance_matrix = compute_mindistance.computeVesselMinDistanceMatrix(data_with_mmsi_sorted, TIME_WINDOW = 1800)
-	# print "time spent:", time.time() - start_time
+	# mmsi_list_dict, min_distance_matrix, vessel_distance_speed_dict = \
+	# compute_mindistance.computeVesselMinDistanceMatrix(data_with_mmsi_sorted, TIME_WINDOW = 1800)
+
 	# writeToCSV.saveData([{ \
 	# 	'mmsi_list_dict': mmsi_list_dict, \
-	# 	'min_distance_matrix': min_distance_matrix \
+	# 	'min_distance_matrix': min_distance_matrix, \
+	# 	'vessel_distance_speed_dict': vessel_distance_speed_dict
 	# 	}], filename = root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec")
-	
-	# min_distance_matrix_result = writeToCSV.loadData(root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi.npz")
-	# print "min_distance_matrix_result:\n", min_distance_matrix_result, type(min_distance_matrix_result)
-	# min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
-	# print "min_distance_matrix loaded:\n", min_distance_matrix
-	# print "min_distance_matrix min of 10 tankers:", np.min(min_distance_matrix)
+
+	# print "time spent:", time.time() - start_time
+
+	"""From already computed"""	
+	min_distance_matrix_result = writeToCSV.loadData(\
+		root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec.npz")
+	print "min_distance_matrix_result type:\n", type(min_distance_matrix_result)
+	mmsi_list_dict = min_distance_matrix_result[0]["mmsi_list_dict"]
+	min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
+	vessel_distance_speed_dict = min_distance_matrix_result[0]["vessel_distance_speed_dict"]
+	print "min_distance_matrix loaded:\n", min_distance_matrix
+	min_of_min_distance = sys.maxint
+	for i in range(0, min_distance_matrix.shape[0]):
+		for j in range(i + 1, min_distance_matrix.shape[1]):
+			if (min_distance_matrix[i][j] < min_of_min_distance):
+				min_of_min_distance = min_distance_matrix[i][j]
+	print "min_distance_matrix min of 10 tankers:", min_of_min_distance
+
+	"""write min distance records for Agent Based Simulator"""
+	writeToCSV.writeVesselSpeedToDistance(\
+		path = utils.queryPath(root_folder+"ABMInput"),\
+		file_name = "vessel_speed_to_distance", \
+		vessel_distance_speed_dict = vessel_distance_speed_dict)
+	writeToCSV.writeVesselMinDistanceMatrix(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "vessel_min_distance_matrix", \
+		mmsi_list_dict = mmsi_list_dict, \
+		min_distance_matrix = min_distance_matrix)
+
+	raise ValueError("purpose stop for computing min distance between vessels")
 
 	"""
 	Test Clustering
