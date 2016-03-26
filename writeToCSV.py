@@ -183,7 +183,8 @@ def writeAllProtocolTrajectories(path, file_name, all_protocol_trajectories, clu
 		'cluster_size'
 		]
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-		
+		empty_writer= csv.writer(csvfile, delimiter=',')
+
 		writer.writeheader()
 	
 		for i in range(0, len(all_protocol_trajectories)):
@@ -198,7 +199,7 @@ def writeAllProtocolTrajectories(path, file_name, all_protocol_trajectories, clu
 					'true_heading':point[utils.dataDict['true_heading']], 
 					'cluster_size':cluster_label_to_cluster_size[i]
 					})
-			writer.writerow({}) # write empty line between trajecotries to indicate start of new trajectory
+			empty_writer.writerow([]) # write empty line between trajecotries to indicate start of new trajectory
 	return
 
 def writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(path, file_name, endpoints, endpoints_cluster_dict):
@@ -254,7 +255,7 @@ def writeVesselSpeedToDistance(path, file_name, vessel_distance_speed_dict):
 		'distance' \
 		]
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-		
+		empty_writer= csv.writer(csvfile, delimiter=',')
 		writer.writeheader()
 	
 		for vessel_pair_string, tuple_list in vessel_distance_speed_dict.iteritems():
@@ -266,7 +267,7 @@ def writeVesselSpeedToDistance(path, file_name, vessel_distance_speed_dict):
 						'relative_speed': speed_distance_tuple.speed,
 						'distance':speed_distance_tuple.distance
 					})
-				writer.writerow({}) # empty row indicating the start of new pair
+				empty_writer.writerow([]) # empty row indicating the start of new pair
 	return
 
 def writeVesselMinDistanceMatrix(path, file_name, mmsi_list_dict, min_distance_matrix):
