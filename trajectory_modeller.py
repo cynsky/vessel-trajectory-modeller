@@ -566,6 +566,10 @@ def main():
 		file_name = "vessel_min_distance_matrix", \
 		mmsi_list_dict = mmsi_list_dict, \
 		min_distance_matrix = min_distance_matrix)
+	writeToCSV.writeMMSIs(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "mmsi_list", \
+		mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
 
 	raise ValueError("purpose stop for computing min distance between vessels")
 

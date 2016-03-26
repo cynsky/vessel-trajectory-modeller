@@ -243,6 +243,9 @@ def writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(path, file_name, endpoin
 	return
 
 def writeVesselSpeedToDistance(path, file_name, vessel_distance_speed_dict):
+	"""
+	vessel_distance_speed_dict: a dictionary of ["id1_id2" : [utils.SpeedDistanceTuple]]
+	"""
 	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
 		fieldnames = [\
 		'id1', \
@@ -267,6 +270,10 @@ def writeVesselSpeedToDistance(path, file_name, vessel_distance_speed_dict):
 	return
 
 def writeVesselMinDistanceMatrix(path, file_name, mmsi_list_dict, min_distance_matrix):
+	"""
+	mmsi_list_dict: a dictionary of [mmsi_id: row / col index in min_distance_matrix]
+	min_distance_matrix: a 2D dense matrix of shape (len(mmsi_list), len(mmsi_list))
+	"""
 	with open(path +"/"+ file_name+ ".csv", 'w') as csvfile:
 		fieldnames = [\
 		'id1', \
@@ -284,6 +291,21 @@ def writeVesselMinDistanceMatrix(path, file_name, mmsi_list_dict, min_distance_m
 					'id2':long(mmsi_list[j]),
 					'min_distance': min_distance_matrix[mmsi_list_dict[long(mmsi_list[i])]][mmsi_list_dict[long(mmsi_list[j])]]
 				})
+	return
+
+def writeMMSIs(path, file_name, mmsi_list):
+	"""mmsi_list: list of mmsi (long)"""
+	with open (path + "/" + file_name + ".csv", 'w') as csvfile:
+		fieldnames = [\
+		'mmsi'
+		]
+		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+		
+		writer.writeheader()
+		for i in range(0, len(mmsi_list)):
+			writer.writerow({
+				'mmsi': mmsi_list[i]
+			})
 	return
 
 def main():
