@@ -215,36 +215,6 @@ def convertListOfTrajectoriesToXY(originLatitude, originLongtitude, listOfTrajec
 			listOfTrajectories[i][j][utils.data_dict_x_y_coordinate["x"]] = x
 	return listOfTrajectories
 
-def isErrorTrajectory(trajectory, center_lat_sg, center_lon_sg):
-	"""
-	Checks if the give trajectory is too far from the Port Center, or only contains less than one trajectory point
-	"""
-	if(len(trajectory) <= 1):
-		return True
-
-	for i in range(0, len(trajectory)):
-		dx, dy = utils.LatLonToXY (trajectory[i][utils.dataDict["latitude"]],trajectory[i][utils.dataDict["longitude"]],center_lat_sg, center_lon_sg)
-		if(np.linalg.norm([dx, dy], 2) > utils.MAX_DISTANCE_FROM_SG):
-			return True
-	return False
-
-def removeErrorTrajectoryFromList(trajectories, center_lat_sg = 1.2, center_lon_sg = 103.8):
-	"""
-	note: list object passing to function will be by reference, while using np.delete(), returns a new copy thus need to return
-	trajectories: normal trajectories with lat and lon
-	return: the list of trajectories with error ones removed
-	"""
-	i = 0
-	while(i < len(trajectories)):
-		if(isErrorTrajectory(trajectories[i], center_lat_sg, center_lon_sg)):
-			if(isinstance(trajectories, list)): # if list, call the list's delete method
-				trajectories.pop(i)
-			elif(isinstance(trajectories, np.ndarray)): # if numpy.ndarray, call its delete method
-				trajectories = np.delete(trajectories, i, 0)
-		else:
-			i += 1
-	return trajectories
-
 
 def endPointMatchTrajectoryCentroid(endpoint, centroid, reference_lat, reference_lon):
 	assert (len(centroid) > 0), "cluster centroid must be non empty"
@@ -309,10 +279,10 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		# metric_func = clustering_worker.trajectoryDissimilarityCenterMass, \
 		
 		# user_distance_matrix = writeToCSV.loadData(root_folder + \
-			# "/cluster_result/10_tankers_dissimilarity_center_mass/10_tankers_dissimilarity_center_mass_cleaned.npz")
+			# "/cluster_result/10_tankers_dissimilarity_center_mass/10_tankers_dissimilarity_center_mass_cleaned.npz"), \
 
 		# user_distance_matrix = writeToCSV.loadData(root_folder + \
-			# "/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned.npz")
+			# "/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned.npz"), \
 		
 		user_distance_matrix = writeToCSV.loadData(root_folder + \
 			"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints" + \
@@ -321,7 +291,7 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 
 	print "opt_cluster_label:", opt_cluster_label
 	print "opt_num_cluster:", len(set(opt_cluster_label))
-
+	raise ValueError("stop for clustering only, no writing centroids")
 
 
 	# print "distance between 1 and 4, should be quite small:", clustering_worker.trajectoryDissimilarityL2( \
@@ -579,12 +549,11 @@ def main():
 	trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_with_1D_data_refined.npz")
 	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
 	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
-	print trajectories_to_cluster.shape
+	print "trajectories_to_cluster.shape: ", trajectories_to_cluster.shape
+	print "type(trajectories_to_cluster): ", type(trajectories_to_cluster)
+	print "len(trajectories_to_cluster): ", len(trajectories_to_cluster)
 	
-	print type(trajectories_to_cluster)
-	print len(trajectories_to_cluster)
-	trajectories_to_cluster = list(trajectories_to_cluster)
-	# convert Lat, Lon to XY for displaying
+	# convert Lat, Lon to XY for clustering
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, trajectories_to_cluster)
 	executeClustering(root_folder = root_folder, \
 		all_OD_trajectories_XY = all_OD_trajectories_XY, \
