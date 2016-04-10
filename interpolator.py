@@ -70,6 +70,7 @@ def interpolateGeographicalGrid(trajectory):
 	"""Get the min_x, min_y, max_x, max_y of the converted coordinates among the trajectory points"""
 	origin = trajectory[0]
 	end = trajectory[len(trajectory) -1]
+	"""TODO: scale should be trajectory dependent instead of fixed to make sure grid step is uniform, say 0.02 km"""
 	scale = 100
 	min_x = 0
 	max_x = 0

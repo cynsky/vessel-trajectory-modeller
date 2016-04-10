@@ -325,8 +325,8 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	for cluster_label, centroid in cluster_centroids.iteritems():
 		cluster_centroids_lat_lon[cluster_label] = convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
 			[copy.deepcopy(centroid)])[0]
-		writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[cluster_label]), root_folder + "/cleanedData/DEBUGGING", \
-		"refined_centroid_{i}".format(i = cluster_label))
+		# writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon[cluster_label]), root_folder + "/cleanedData/DEBUGGING", \
+		# "refined_centroid_{i}".format(i = cluster_label))
 
 	# flatten
 	cluster_centroids_lat_lon_flattened = [point for cluster_label, centroid in cluster_centroids_lat_lon.iteritems() \
@@ -467,6 +467,14 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	writeToCSV.saveData([endpoints_cluster_dict], \
 		filename = root_folder + "/cleanedData" + "/endpoints_cluster_dict" + fname)
 
+	"""write all the all_protocol_trajectories for DEBUGGING purpose"""
+	for i in range(0, len(all_protocol_trajectories)):
+		protocol_trajectory = all_protocol_trajectories[i]
+		writeToCSV.writeDataToCSV(\
+			np.asarray(protocol_trajectory), \
+			utils.queryPath(root_folder + "/cleanedData/DEBUGGING/ALL_PROTOCOLS"), \
+			"all_protocol_{i}".format(i = i))
+
 	"""Save related csv files for Agent Based Simulator"""
 	writeToCSV.writeAllProtocolTrajectories(\
 		path = utils.queryPath(root_folder+"ABMInput"), \
@@ -511,36 +519,36 @@ def main():
 	# print "time spent:", time.time() - start_time
 
 	"""From already computed"""	
-	min_distance_matrix_result = writeToCSV.loadData(\
-		root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec.npz")
-	print "min_distance_matrix_result type:\n", type(min_distance_matrix_result)
-	mmsi_list_dict = min_distance_matrix_result[0]["mmsi_list_dict"]
-	min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
-	vessel_distance_speed_dict = min_distance_matrix_result[0]["vessel_distance_speed_dict"]
-	print "min_distance_matrix loaded:\n", min_distance_matrix
-	min_of_min_distance = sys.maxint
-	for i in range(0, min_distance_matrix.shape[0]):
-		for j in range(i + 1, min_distance_matrix.shape[1]):
-			if (min_distance_matrix[i][j] < min_of_min_distance):
-				min_of_min_distance = min_distance_matrix[i][j]
-	print "min_distance_matrix min of 10 tankers:", min_of_min_distance
+	# min_distance_matrix_result = writeToCSV.loadData(\
+	# 	root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec.npz")
+	# print "min_distance_matrix_result type:\n", type(min_distance_matrix_result)
+	# mmsi_list_dict = min_distance_matrix_result[0]["mmsi_list_dict"]
+	# min_distance_matrix = min_distance_matrix_result[0]["min_distance_matrix"]
+	# vessel_distance_speed_dict = min_distance_matrix_result[0]["vessel_distance_speed_dict"]
+	# print "min_distance_matrix loaded:\n", min_distance_matrix
+	# min_of_min_distance = sys.maxint
+	# for i in range(0, min_distance_matrix.shape[0]):
+	# 	for j in range(i + 1, min_distance_matrix.shape[1]):
+	# 		if (min_distance_matrix[i][j] < min_of_min_distance):
+	# 			min_of_min_distance = min_distance_matrix[i][j]
+	# print "min_distance_matrix min of 10 tankers:", min_of_min_distance
 
-	"""write min distance records for Agent Based Simulator"""
-	writeToCSV.writeVesselSpeedToDistance(\
-		path = utils.queryPath(root_folder+"ABMInput"),\
-		file_name = "vessel_speed_to_distance", \
-		vessel_distance_speed_dict = vessel_distance_speed_dict)
-	writeToCSV.writeVesselMinDistanceMatrix(\
-		path = utils.queryPath(root_folder+"ABMInput"), \
-		file_name = "vessel_min_distance_matrix", \
-		mmsi_list_dict = mmsi_list_dict, \
-		min_distance_matrix = min_distance_matrix)
-	writeToCSV.writeMMSIs(\
-		path = utils.queryPath(root_folder+"ABMInput"), \
-		file_name = "mmsi_list", \
-		mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
+	# """write min distance records for Agent Based Simulator"""
+	# writeToCSV.writeVesselSpeedToDistance(\
+	# 	path = utils.queryPath(root_folder+"ABMInput"),\
+	# 	file_name = "vessel_speed_to_distance", \
+	# 	vessel_distance_speed_dict = vessel_distance_speed_dict)
+	# writeToCSV.writeVesselMinDistanceMatrix(\
+	# 	path = utils.queryPath(root_folder+"ABMInput"), \
+	# 	file_name = "vessel_min_distance_matrix", \
+	# 	mmsi_list_dict = mmsi_list_dict, \
+	# 	min_distance_matrix = min_distance_matrix)
+	# writeToCSV.writeMMSIs(\
+	# 	path = utils.queryPath(root_folder+"ABMInput"), \
+	# 	file_name = "mmsi_list", \
+	# 	mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
 
-	raise ValueError("purpose stop for computing min distance between vessels")
+	# raise ValueError("purpose stop for computing min distance between vessels")
 
 	"""
 	Test Clustering
