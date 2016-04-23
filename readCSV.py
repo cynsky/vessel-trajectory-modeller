@@ -66,15 +66,28 @@ def main():
 	# filename = "3916119.csv"
 	# filename = "1000019.csv"
 	# filename = "9261126.csv" # ship type is 40, High Speed Craft
-	foldername = "tankers/cleanedData"
-	fileNames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# fileNames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# out_sample_test = False
+	fileNames = ["9408475.csv", "9259769.csv"] # for out sample test
+	out_sample_test = True
+
+	if (out_sample_test):
+		foldername = "tankers/out_sample_test/cleanedData"
+	else:
+		foldername = "tankers/cleanedData"
+
 	aggregateData = None
 	for index in range(0, len(fileNames)):
 		filename = fileNames[index]
+		if(out_sample_test):
+			filename_prefix = "out_sample_test/"
+		else:
+			filename_prefix = ""
+			
 		data = []
 		countSpeedGreaterThan10 = 0
 		maxSpeed = 0
-		with open('tankers/{filename}'.format(filename = filename), 'rU') as csvfile:
+		with open('tankers/{filename}'.format(filename = filename_prefix + filename), 'rU') as csvfile:
 			reader = csv.DictReader(csvfile, dialect=csv.excel_tab, delimiter = ',')
 
 			# skip the first iteration
@@ -128,7 +141,7 @@ def main():
 		
 		print "after cleaning error data.shape:", data.shape
 
-		if(aggregateData == None):
+		if(aggregateData is None):
 			aggregateData = data
 		else:
 			aggregateData = np.concatenate((aggregateData, data), axis=0)
@@ -138,7 +151,7 @@ def main():
 	print "aggregateData.shape:", aggregateData.shape
 	# writeToCSV.saveArray(aggregateData, "{foldername}/{f}".format(foldername = foldername, f = "aggregateData"))
 	# writeToCSV.writeDataToCSV(aggregateData, foldername, "aggregateData")
-	writeToCSV.writeDataToCSVWithMMSI(aggregateData, foldername, "aggregateData_with_mmsi")
+	# writeToCSV.writeDataToCSVWithMMSI(aggregateData, foldername, "aggregateData_with_mmsi")
 	# xy_coordinate = [item[3:5] for item in data]
 	# xy_coordinate = np.asarray(xy_coordinate)
 	# print xy_coordinate.shape c

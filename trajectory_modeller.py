@@ -45,7 +45,7 @@ def boxMeanTrajectoryPoints(trajectory_points, reference_lat, reference_lon):
 	return trajectory_points_XY_mean
 
 
-def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = ""):
+def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude, endTS, endLatitude, endLongtitude, show = True, save = False, clean = False, fname = "", path = "plots"):
 	"""
 	returns: OD_trajectories: in x,y coordinate;
 			 OD_trajectories_lat_lon: in lat, lon coordinate;
@@ -124,7 +124,7 @@ def extractTrajectoriesUntilOD(data, originTS, originLatitude, originLongtitude,
 	if(not plt.gca().yaxis_inverted()):
 		plt.gca().invert_yaxis()
 	if(save):
-		plt.savefig("./{path}/{fname}.png".format(path = "plots", fname = fname))
+		plt.savefig("./{path}/{fname}.png".format(path = path, fname = fname))
 	if(show):
 		plt.show()
 	if(clean):
@@ -149,6 +149,8 @@ def extractEndPoints(data):
 	"""
 	endpoints = []
 	print "data.shape:",data.shape
+	if (len(data) > 0):
+		endpoints.append(data[0]) # assume first point is an endpoint
 	i = 0
 	while(i< data.shape[0]):
 		start_point = data[i]
@@ -260,9 +262,9 @@ def lookForEndPoints(endpoints, endpoint_str):
 	return None
 
 def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, reference_lon):
-	# fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints"
 	# fname = "10_tankers_dissimilarity_l2_inconsistent_refined_endpoints"
 	fname = "10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints"
+	# fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints"
 
 	# fname = "10_tankers_dissimilarity_l2_inconsistent"
 	# fname = "10_tankers_dissimilarity_l2_all_K"
@@ -287,6 +289,11 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		user_distance_matrix = writeToCSV.loadData(root_folder + \
 			"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints" + \
 			"/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints.npz"), \
+
+		# user_distance_matrix = writeToCSV.loadData(root_folder + \
+			# "/cluster_result/10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints" + \
+			# "/10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints.npz"), \
+
 		criterion = 'distance')
 
 	print "opt_cluster_label:", opt_cluster_label
@@ -333,6 +340,12 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	for point in centroid]
 	writeToCSV.writeDataToCSV(np.asarray(cluster_centroids_lat_lon_flattened), root_folder + "/cleanedData", \
 		"centroids_" + fname)
+
+	"""array of centroids written to .npz"""
+	writeToCSV.saveData([centroid for cluster_label, centroid in cluster_centroids_lat_lon.iteritems()], \
+		root_folder + "/cleanedData/centroids_arr")
+
+	raise ValueError("purpose stop for clusering only")
 
 	"""DEBUGGING,using unrefined data"""
 	# point_to_examine = (1.2625833, 103.6827)
@@ -401,52 +414,55 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		cluster_label_to_cluster_size[label - 1] = len(np.where(opt_cluster_label == label)[0])
 	assert(np.sum([size for label, size in cluster_label_to_cluster_size.iteritems()]) == len(opt_cluster_label)), "sum of individual label size should == total count"
 
+	"""assign augmented trajectories to empty endpoints"""	
+	assign_augmented_to_empty_enpoints_flag = False
 	DEBUG_APPEND_INDEXS = []
-	for endpoint_str, endpoint_tuple_list in endpoints_cluster_dict.iteritems():
-		endpoint_starting_clusters = [item.cluster for item in endpoint_tuple_list] # get the list of cluster_labels of centroids to a certain endpoint
+	if (assign_augmented_to_empty_enpoints_flag):
+		for endpoint_str, endpoint_tuple_list in endpoints_cluster_dict.iteritems():
+			endpoint_starting_clusters = [item.cluster for item in endpoint_tuple_list] # get the list of cluster_labels of centroids to a certain endpoint
 
-		if (len(endpoint_starting_clusters) == 0):
-			"""If no centroid assigned, then assign the original augmented trajectory"""
-			this_empty_endpoint = lookForEndPoints(endpoints, endpoint_str) # endpoints is in lat, lon
-			if (this_empty_endpoint is None):
-				raise ValueError("Error! should always be able to map back endpoints, but {p} is not found".format(p = endpoint_str))
-			empty_endpoints.append(this_empty_endpoint)
+			if (len(endpoint_starting_clusters) == 0):
+				"""If no centroid assigned, then assign the original augmented trajectory"""
+				this_empty_endpoint = lookForEndPoints(endpoints, endpoint_str) # endpoints is in lat, lon
+				if (this_empty_endpoint is None):
+					raise ValueError("Error! should always be able to map back endpoints, but {p} is not found".format(p = endpoint_str))
+				empty_endpoints.append(this_empty_endpoint)
 
-			point_to_examine_XY = utils.LatLonToXY(reference_lat,reference_lon, \
-				this_empty_endpoint[utils.dataDict["latitude"]], this_empty_endpoint[utils.dataDict["longitude"]])
-			augmented_trajectories_from_point_to_examine_index = []
-			augmented_trajectories_from_point_to_examine = []
-			for i in range(0, len(all_OD_trajectories_XY)):
-				trajectory = all_OD_trajectories_XY[i]
-				if (np.linalg.norm([ \
-					point_to_examine_XY[0] - trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
-					point_to_examine_XY[1] - trajectory[0][utils.data_dict_x_y_coordinate["y"]]], 2) < utils.NEIGHBOURHOOD_ENDPOINT):
-					augmented_trajectories_from_point_to_examine_index.append(i)
-					augmented_trajectories_from_point_to_examine.append(trajectory)
-					# print "this found augmented_trajectories_from_point_to_examine_index:", \
-					# augmented_trajectories_from_point_to_examine_index, \
-					# "starting pos:", \
-					# trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
-					# trajectory[0][utils.data_dict_x_y_coordinate["y"]] 
-			print "all indexes (w.r.t all_OD_trajectories_XY) for this_empty_endpoint:", augmented_trajectories_from_point_to_examine_index
+				point_to_examine_XY = utils.LatLonToXY(reference_lat,reference_lon, \
+					this_empty_endpoint[utils.dataDict["latitude"]], this_empty_endpoint[utils.dataDict["longitude"]])
+				augmented_trajectories_from_point_to_examine_index = []
+				augmented_trajectories_from_point_to_examine = []
+				for i in range(0, len(all_OD_trajectories_XY)):
+					trajectory = all_OD_trajectories_XY[i]
+					if (np.linalg.norm([ \
+						point_to_examine_XY[0] - trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
+						point_to_examine_XY[1] - trajectory[0][utils.data_dict_x_y_coordinate["y"]]], 2) < utils.NEIGHBOURHOOD_ENDPOINT):
+						augmented_trajectories_from_point_to_examine_index.append(i)
+						augmented_trajectories_from_point_to_examine.append(trajectory)
+						# print "this found augmented_trajectories_from_point_to_examine_index:", \
+						# augmented_trajectories_from_point_to_examine_index, \
+						# "starting pos:", \
+						# trajectory[0][utils.data_dict_x_y_coordinate["x"]], \
+						# trajectory[0][utils.data_dict_x_y_coordinate["y"]] 
+				print "all indexes (w.r.t all_OD_trajectories_XY) for this_empty_endpoint:", augmented_trajectories_from_point_to_examine_index
 
-			DEBUG_APPEND_INDEXS.append(augmented_trajectories_from_point_to_examine_index)
+				DEBUG_APPEND_INDEXS.append(augmented_trajectories_from_point_to_examine_index)
 
-			"""Append augmented_trajectories_from_point_to_examine to end of array of centroids and give extra label"""
-			for augmented_index in augmented_trajectories_from_point_to_examine_index:
-				if (not augmented_index in augmented_index_to_extra_label_mapping): 
-					# if this normal trajectory is not appened, append it and mark in the augmented_index_to_extra_label_mapping
-					augmented_index_to_extra_label_mapping[augmented_index] = len(all_protocol_trajectories)
-					cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] = 1
-					all_protocol_trajectories.append(\
-						convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
-							[copy.deepcopy(all_OD_trajectories_XY[augmented_index])])[0])
-				else:
-					cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] += 1
+				"""Append augmented_trajectories_from_point_to_examine to end of array of centroids and give extra label"""
+				for augmented_index in augmented_trajectories_from_point_to_examine_index:
+					if (not augmented_index in augmented_index_to_extra_label_mapping): 
+						# if this normal trajectory is not appened, append it and mark in the augmented_index_to_extra_label_mapping
+						augmented_index_to_extra_label_mapping[augmented_index] = len(all_protocol_trajectories)
+						cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] = 1
+						all_protocol_trajectories.append(\
+							convertListOfTrajectoriesToLatLon(reference_lat, reference_lon, \
+								[copy.deepcopy(all_OD_trajectories_XY[augmented_index])])[0])
+					else:
+						cluster_label_to_cluster_size[augmented_index_to_extra_label_mapping[augmented_index]] += 1
 
-				endpoints_cluster_dict[endpoint_str].append(utils.ClusterCentroidTuple(\
-					cluster = augmented_index_to_extra_label_mapping[augmented_index], \
-					centroid = all_protocol_trajectories[augmented_index_to_extra_label_mapping[augmented_index]]))
+					endpoints_cluster_dict[endpoint_str].append(utils.ClusterCentroidTuple(\
+						cluster = augmented_index_to_extra_label_mapping[augmented_index], \
+						centroid = all_protocol_trajectories[augmented_index_to_extra_label_mapping[augmented_index]]))
 
 	"""Asserting and Saving of info for Agent Based Simulator"""
 	assert (len(set([index for index_list in DEBUG_APPEND_INDEXS for index in index_list])) == \
@@ -472,7 +488,7 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		protocol_trajectory = all_protocol_trajectories[i]
 		writeToCSV.writeDataToCSV(\
 			np.asarray(protocol_trajectory), \
-			utils.queryPath(root_folder + "/cleanedData/DEBUGGING/ALL_PROTOCOLS"), \
+			utils.queryPath(root_folder + "/cleanedData/DEBUGGING/ALL_PROTOCOLS_PATTERN_ONLY"), \
 			"all_protocol_{i}".format(i = i))
 
 	"""Save related csv files for Agent Based Simulator"""
@@ -677,7 +693,7 @@ def main():
 	save the augmented trajectories between endpoints as npz data file and the plot
 	"""
 	# remove error trajectories that are too far from Singapore
-	all_OD_trajectories = removeErrorTrajectoryFromList(all_OD_trajectories)
+	all_OD_trajectories = utils.removeErrorTrajectoryFromList(all_OD_trajectories)
 	writeToCSV.saveData(all_OD_trajectories, root_folder + "/all_OD_trajectories_with_1D_data")
 	# convert Lat, Lon to XY for displaying
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories)
