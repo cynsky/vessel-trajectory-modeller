@@ -56,7 +56,7 @@ def main():
 		centroids = writeToCSV.loadData("tankers/cleanedData/centroids_arr_center_mass.npz")
 
 	"""Extract endpoints, trajectories, augmentation"""
-	filenames = ["9408475.csv", "9259769.csv"] # for out sample test
+	filenames = ["9050462.csv","9259769.csv", "9327138.csv", "9408475.csv", "9417464.csv", "9548440.csv"] # for out sample test
 	# filenames = ["9408475.csv"]
 	endpoints = None
 	all_OD_trajectories = []
@@ -152,13 +152,14 @@ def main():
 	else:
 		all_OD_trajectories = writeToCSV.loadData(root_folder + "/all_OD_trajectories_with_1D_data.npz")
 
+
 	"""convert Lat, Lon to XY for displaying"""
 	all_OD_trajectories_XY = trajectory_modeller.convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories)
 	plotter.plotListOfTrajectories(\
 		all_OD_trajectories_XY, \
-		show = False, \
+		show = True, \
 		clean = True, \
-		save = True, \
+		save = False, \
 		fname = "out_sample_tanker_all_OD_trajectories", path = utils.queryPath(root_folder + "/plots"))
 
 	"""Test distance to cluster centroids"""
@@ -179,6 +180,10 @@ def main():
 			print "augmented trajectories[{i}]".format(i = i), \
 			"'s best center of mass distance is against cluster centroids[{i}], = ".format(i = according_pattern_index), \
 			this_tr_centroids_dist, ", max allowed distance  = ", 1.5
+
+		# plotter.plotFeatureSpace(centroids[according_pattern_index])
+		# plotter.plotFeatureSpace(\
+			# trajectory_modeller.convertListOfTrajectoriesToLatLon(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, [this_tr_XY])[0])
 
 
 

@@ -93,7 +93,7 @@ def getAngularSpeeds(data):
 
 def plotFeatureSpace(data):
 	"""
-	data: one trajectory
+	data: one trajectory in lat, lon
 	returns: plots the speed, accelerations, turning rate along this trajectory
 	"""
 	num_bins = 50
