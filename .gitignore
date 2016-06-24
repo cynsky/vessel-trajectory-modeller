@@ -11,5 +11,6 @@ tankers/*.npz
 tankers/*.npz copy
 cleanedData/
 dynamic/
+*.pyc
 
 
