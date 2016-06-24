@@ -569,20 +569,20 @@ def main():
 	"""
 	Test Clustering
 	"""
-	trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_with_1D_data_refined.npz")
-	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
-	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
-	print "trajectories_to_cluster.shape: ", trajectories_to_cluster.shape
-	print "type(trajectories_to_cluster): ", type(trajectories_to_cluster)
-	print "len(trajectories_to_cluster): ", len(trajectories_to_cluster)
+	# trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_with_1D_data_refined.npz")
+	# # trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_cleaned.npz")
+	# # trajectories_to_cluster = writeToCSV.loadData(root_folder + "/" + "all_OD_trajectories_9664225.npz")
+	# print "trajectories_to_cluster.shape: ", trajectories_to_cluster.shape
+	# print "type(trajectories_to_cluster): ", type(trajectories_to_cluster)
+	# print "len(trajectories_to_cluster): ", len(trajectories_to_cluster)
 	
-	# convert Lat, Lon to XY for clustering
-	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, trajectories_to_cluster)
-	executeClustering(root_folder = root_folder, \
-		all_OD_trajectories_XY = all_OD_trajectories_XY, \
-		reference_lat = utils.CENTER_LAT_SG, \
-		reference_lon = utils.CENTER_LON_SG)
-	raise ValueError("purpose stop for testing clustering")
+	# # convert Lat, Lon to XY for clustering
+	# all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, trajectories_to_cluster)
+	# executeClustering(root_folder = root_folder, \
+	# 	all_OD_trajectories_XY = all_OD_trajectories_XY, \
+	# 	reference_lat = utils.CENTER_LAT_SG, \
+	# 	reference_lon = utils.CENTER_LON_SG)
+	# raise ValueError("purpose stop for testing clustering")
 
 
 	"""
@@ -597,11 +597,15 @@ def main():
 
 	"""
 	Extract endpoints;
-	TODO: Further cleaning of the data, sometimes the ship 'flys' around and out of a confined study window, need to tackle this situation
+	Firstly, extract all .csv input files from /{root_folder}/input/*.csv
 	"""
-	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
 	# filenames = ["9664225.csv"]
 	# filenames = ["8514019.csv"]
+	filenames = []
+	for input_filename in os.listdir("{root_folder}/input/".format(root_folder = root_folder)):
+		if (input_filename.find(".csv") != -1):
+			filenames.append(input_filename)
 	endpoints = None
 	all_OD_trajectories = []
 	
