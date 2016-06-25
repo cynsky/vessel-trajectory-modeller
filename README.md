@@ -10,6 +10,12 @@ Trajectory Modelling for Vessel Tracking and Collision Avoidance
 - Setup Module Requirements:
   - Python
   - Numpy
+    - 
+    ```
+    pip install numpy
+    ```
   - Scipy
+    - pip install scipy
   - Scikit Learn
+    - 
   - matplotlib
