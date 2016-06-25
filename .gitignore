@@ -12,5 +12,6 @@ tankers/*.npz copy
 cleanedData/
 dynamic/
 *.pyc
+dataSource/dynamic/
 
 
