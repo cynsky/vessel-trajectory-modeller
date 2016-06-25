@@ -1,10 +1,9 @@
 # vessel-trajectory-modeller
 Trajectory Modelling for Vessel Tracking and Collision Avoidance
-- Author: A0105591J Xing Yifan
-- Purely Python
+- Author: Xing Yifan (A0105591J)
 - Large Datasets
 - Machine learning techniques used for trajectory clustering
-- Min Distance Extraction between pairs of vessels 
+- Min Distance Extraction between pairs of vessels
 - Result Aggregation and Saving as inputs for Agent Based Simulator
 
 - Setup Module Requirements:
@@ -40,3 +39,20 @@ Trajectory Modelling for Vessel Tracking and Collision Avoidance
     - input the {vessel_type} from previous step as root_folder asked
     - the raw {IMO}.csv will be cleaned
     - a sub folder under {vessel_type}/cleanData/*.csv will be created
+  
+  - run trajectory_modeller.py
+    - input the {vessel_type} from previous step as root_folder asked
+    - choose 'y' to 'Need to compute min_distance_matrix for ABM input? (y/n)' if min distance matrix for ABM input later is not yet computed
+    - trajectory_modeller will continue with endpoint extraction, trajectory formation, trajectory interpolation and trajectory clustering
+    - Final subfolder structure will be as the following:
+      - {vessel_type}/
+      
+        |___ cleanedData/
+
+        |___ endPoints/
+        
+        |___ input/
+        
+        |___ trajectories
+       
+    - Required ABM inputs for the C++ ABM module will be found in ./{vessel_type}ABMInput/
