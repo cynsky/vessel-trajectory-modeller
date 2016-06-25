@@ -32,6 +32,7 @@ Trajectory Modelling for Vessel Tracking and Collision Avoidance
 - Usage:
   - run inputDataSearcher.py
     - To search for raw {IMO}.csv files from the dataSource/dynamic folder and create a sub folder structure with the {vessel_type} input
+      - dataSource/dynamic is excluded in the repository, contact [xingyifan@u.nus.edu](xingyifan@u.nus.edu) for the complete files
     - To specifiy a maximum number of .csv files copied, type a number at the second time asking for input (or press enter for searching for all .csv files of that {vessel_type})
     - a folder structure of {vessel_type}/input/*.csv will be created
   
