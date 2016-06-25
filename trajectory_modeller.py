@@ -261,9 +261,10 @@ def lookForEndPoints(endpoints, endpoint_str):
 			return endpoint
 	return None
 
-def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, reference_lon):
+def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, reference_lon, filenames):
+	fname = "{root_folder}_dissimilarity_l2_cophenetic_distance".format(root_folder = root_folder)
 	# fname = "10_tankers_dissimilarity_l2_inconsistent_refined_endpoints"
-	fname = "10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints"
+	# fname = "10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints"
 	# fname = "10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints"
 
 	# fname = "10_tankers_dissimilarity_l2_inconsistent"
@@ -286,9 +287,9 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		# user_distance_matrix = writeToCSV.loadData(root_folder + \
 			# "/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned/10_tankers_dissimilarity_l2_cophenetic_distance_cleaned.npz"), \
 		
-		user_distance_matrix = writeToCSV.loadData(root_folder + \
-			"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints" + \
-			"/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints.npz"), \
+		# user_distance_matrix = writeToCSV.loadData(root_folder + \
+		# 	"/cluster_result/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints" + \
+		# 	"/10_tankers_dissimilarity_l2_cophenetic_distance_refined_endpoints.npz"), \
 
 		# user_distance_matrix = writeToCSV.loadData(root_folder + \
 			# "/cluster_result/10_tankers_dissimilarity_center_mass_cophenetic_distance_refined_endpoints" + \
@@ -314,7 +315,6 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	# plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = True, clean = True, save = False, fname = "")
 	
 	"""Construct the endpoints to representative trajectory mapping"""
-	filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
 	endpoints = None
 	for filename in filenames:
 		this_vessel_endpoints = writeToCSV.readDataFromCSVWithMMSI( \
@@ -345,7 +345,7 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	writeToCSV.saveData([centroid for cluster_label, centroid in cluster_centroids_lat_lon.iteritems()], \
 		root_folder + "/cleanedData/centroids_arr")
 
-	raise ValueError("purpose stop for clusering only")
+	# raise ValueError("purpose stop for clusering only")
 
 	"""DEBUGGING,using unrefined data"""
 	# point_to_examine = (1.2625833, 103.6827)
@@ -479,7 +479,7 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 	print "total number of endpoints:", len(endpoints)
 	writeToCSV.writeDataToCSVWithMMSI(np.asarray(endpoints), root_folder + "/endpoints", "all_endpoints_with_MMSI")
 	writeToCSV.writeDataToCSV(np.asarray(empty_endpoints), root_folder + "/cleanedData", \
-		"non_starting_endpoints_10_tankers_dissimilarity_l2_cophenetic_distance_cleaned")
+		"non_starting_endpoints_{root_folder}_dissimilarity_l2_cophenetic_distance_cleaned".format(root_folder = root_folder))
 	writeToCSV.saveData([endpoints_cluster_dict], \
 		filename = root_folder + "/cleanedData" + "/endpoints_cluster_dict" + fname)
 
@@ -506,33 +506,44 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 
 
 def main():
-	root_folder = "tankers"
+	root_folder = raw_input("Input the root_folder name:")
+	
+	"""
+	Firstly, extract all .csv input file names from {root_folder}/input/*.csv
+	"""
+	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
+	# filenames = ["9664225.csv"]
+	# filenames = ["8514019.csv"]
+	filenames = []
+	for input_filename in os.listdir("{root_folder}/input/".format(root_folder = root_folder)):
+		if (input_filename.find(".csv") != -1):
+			filenames.append(input_filename)
 
 	"""
 	Get min distance between vessels
 	"""
 	"""sort the aggregateData with MMSI based on TS"""
-	# data_with_mmsi = writeToCSV.readDataFromCSVWithMMSI(path = root_folder + "/cleanedData", filename = "aggregateData_with_mmsi.csv")
-	# data_with_mmsi_sorted = compute_mindistance.sortDataBasedOnTS(data_with_mmsi)
-	# writeToCSV.writeDataToCSVWithMMSI(data_with_mmsi_sorted, root_folder + "/cleanedData", "aggregateData_with_mmsi_sorted")
+	data_with_mmsi = writeToCSV.readDataFromCSVWithMMSI(path = root_folder + "/cleanedData", filename = "aggregateData_with_mmsi.csv")
+	data_with_mmsi_sorted = compute_mindistance.sortDataBasedOnTS(data_with_mmsi)
+	writeToCSV.writeDataToCSVWithMMSI(data_with_mmsi_sorted, root_folder + "/cleanedData", "aggregateData_with_mmsi_sorted")
 
 	"""Apply the computing of min distance using a timed window"""
-	# data_with_mmsi_sorted = writeToCSV.readDataFromCSVWithMMSI(path = root_folder + "/cleanedData", filename = "aggregateData_with_mmsi_sorted.csv")
-	# mmsi_set = compute_mindistance.getSetOfMMSI(data_with_mmsi_sorted)
-	# print mmsi_set
-	# print list(mmsi_set)
+	data_with_mmsi_sorted = writeToCSV.readDataFromCSVWithMMSI(path = root_folder + "/cleanedData", filename = "aggregateData_with_mmsi_sorted.csv")
+	mmsi_set = compute_mindistance.getSetOfMMSI(data_with_mmsi_sorted)
+	print mmsi_set
+	print list(mmsi_set)
 
-	# start_time = time.time()
-	# mmsi_list_dict, min_distance_matrix, vessel_distance_speed_dict = \
-	# compute_mindistance.computeVesselMinDistanceMatrix(data_with_mmsi_sorted, TIME_WINDOW = 1800)
+	start_time = time.time()
+	mmsi_list_dict, min_distance_matrix, vessel_distance_speed_dict = \
+	compute_mindistance.computeVesselMinDistanceMatrix(data_with_mmsi_sorted, TIME_WINDOW = 1800)
 
-	# writeToCSV.saveData([{ \
-	# 	'mmsi_list_dict': mmsi_list_dict, \
-	# 	'min_distance_matrix': min_distance_matrix, \
-	# 	'vessel_distance_speed_dict': vessel_distance_speed_dict
-	# 	}], filename = root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec")
+	writeToCSV.saveData([{ \
+		'mmsi_list_dict': mmsi_list_dict, \
+		'min_distance_matrix': min_distance_matrix, \
+		'vessel_distance_speed_dict': vessel_distance_speed_dict
+		}], filename = root_folder + "/cleanedData" + "/min_distance_matrix_with_mmsi_time_window_1800_sec")
 
-	# print "time spent:", time.time() - start_time
+	print "time spent:", time.time() - start_time
 
 	"""From already computed"""	
 	# min_distance_matrix_result = writeToCSV.loadData(\
@@ -549,22 +560,22 @@ def main():
 	# 			min_of_min_distance = min_distance_matrix[i][j]
 	# print "min_distance_matrix min of 10 tankers:", min_of_min_distance
 
-	# """write min distance records for Agent Based Simulator"""
-	# writeToCSV.writeVesselSpeedToDistance(\
-	# 	path = utils.queryPath(root_folder+"ABMInput"),\
-	# 	file_name = "vessel_speed_to_distance", \
-	# 	vessel_distance_speed_dict = vessel_distance_speed_dict)
-	# writeToCSV.writeVesselMinDistanceMatrix(\
-	# 	path = utils.queryPath(root_folder+"ABMInput"), \
-	# 	file_name = "vessel_min_distance_matrix", \
-	# 	mmsi_list_dict = mmsi_list_dict, \
-	# 	min_distance_matrix = min_distance_matrix)
-	# writeToCSV.writeMMSIs(\
-	# 	path = utils.queryPath(root_folder+"ABMInput"), \
-	# 	file_name = "mmsi_list", \
-	# 	mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
+	"""write min distance records for Agent Based Simulator"""
+	writeToCSV.writeVesselSpeedToDistance(\
+		path = utils.queryPath(root_folder+"ABMInput"),\
+		file_name = "vessel_speed_to_distance", \
+		vessel_distance_speed_dict = vessel_distance_speed_dict)
+	writeToCSV.writeVesselMinDistanceMatrix(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "vessel_min_distance_matrix", \
+		mmsi_list_dict = mmsi_list_dict, \
+		min_distance_matrix = min_distance_matrix)
+	writeToCSV.writeMMSIs(\
+		path = utils.queryPath(root_folder+"ABMInput"), \
+		file_name = "mmsi_list", \
+		mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
 
-	# raise ValueError("purpose stop for computing min distance between vessels")
+	raise ValueError("purpose stop for computing min distance between vessels")
 
 	"""
 	Test Clustering
@@ -581,7 +592,8 @@ def main():
 	# executeClustering(root_folder = root_folder, \
 	# 	all_OD_trajectories_XY = all_OD_trajectories_XY, \
 	# 	reference_lat = utils.CENTER_LAT_SG, \
-	# 	reference_lon = utils.CENTER_LON_SG)
+	# 	reference_lon = utils.CENTER_LON_SG, \
+	#   filenames = filenames)
 	# raise ValueError("purpose stop for testing clustering")
 
 
@@ -596,18 +608,13 @@ def main():
 	# raise ValueError("For plotting feature space only")
 
 	"""
-	Extract endpoints;
-	Firstly, extract all .csv input files from /{root_folder}/input/*.csv
+	Read the cleaned .csv input files form {root_folder}/cleanedData/
+	Extract endpoints
 	"""
-	# filenames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
-	# filenames = ["9664225.csv"]
-	# filenames = ["8514019.csv"]
-	filenames = []
-	for input_filename in os.listdir("{root_folder}/input/".format(root_folder = root_folder)):
-		if (input_filename.find(".csv") != -1):
-			filenames.append(input_filename)
 	endpoints = None
 	all_OD_trajectories = []
+	utils.queryPath("{root_folder}/endpoints".format(root_folder = root_folder))
+	utils.queryPath("{root_folder}/trajectories".format(root_folder = root_folder))
 	
 	for i in range(0, len(filenames)):
 		this_vessel_trajectory_points = writeToCSV.readDataFromCSV(root_folder + "/cleanedData", filenames[i])
@@ -701,7 +708,8 @@ def main():
 	writeToCSV.saveData(all_OD_trajectories, root_folder + "/all_OD_trajectories_with_1D_data")
 	# convert Lat, Lon to XY for displaying
 	all_OD_trajectories_XY = convertListOfTrajectoriesToXY(utils.CENTER_LAT_SG, utils.CENTER_LON_SG, all_OD_trajectories)
-	plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = False, clean = True, save = True, fname = "tanker_all_OD_trajectories")
+	plotter.plotListOfTrajectories(all_OD_trajectories_XY, show = False, clean = True, save = True, \
+		fname = "{root_folder}_all_OD_trajectories".format(root_folder = root_folder))
 
 
 	"""
@@ -710,7 +718,8 @@ def main():
 	executeClustering(root_folder = root_folder, \
 		all_OD_trajectories_XY = all_OD_trajectories_XY, \
 		reference_lat = utils.CENTER_LAT_SG, \
-		reference_lon = utils.CENTER_LON_SG)
+		reference_lon = utils.CENTER_LON_SG, \
+		filenames = filenames)
 
 
 if __name__ == "__main__":

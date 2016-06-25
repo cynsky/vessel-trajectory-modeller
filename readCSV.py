@@ -10,6 +10,7 @@ import datetime
 import time
 import writeToCSV
 import utils
+import os
 
 def LatLonToXY (lat1, lon1,lat2, lon2): # lat1 and lon1 are the origins and all inputs are assumed to be in the right format of the lat lon
 	dx = (lon2-lon1)*40000*math.cos((lat1+lat2)*math.pi/360)/360
@@ -67,27 +68,30 @@ def main():
 	# filename = "1000019.csv"
 	# filename = "9261126.csv" # ship type is 40, High Speed Craft
 	# fileNames = ["8514019.csv", "9116943.csv", "9267118.csv", "9443140.csv", "9383986.csv", "9343340.csv", "9417464.csv", "9664225.csv", "9538440.csv", "9327138.csv"]
-	# out_sample_test = False
-	fileNames = ["9050462.csv","9259769.csv", "9327138.csv", "9408475.csv", "9417464.csv", "9548440.csv"] # for out sample test
-	out_sample_test = True
+	root_folder = raw_input("Input name for root_folder:")
+	out_sample_test = raw_input("Out Sample Test?(y/n)") == "y"
+	input_path = "{folder}/input/".format(folder = root_folder + ("/out_sample_test" if (out_sample_test) else ""))
+	fileNames = []
+
+	for input_filename in os.listdir(input_path):
+			if (input_filename.find(".csv") != -1):
+				fileNames.append(input_filename)
 
 	if (out_sample_test):
-		foldername = "tankers/out_sample_test/cleanedData"
+		foldername = "{root_folder}/out_sample_test/cleanedData".format(root_folder = root_folder)
 	else:
-		foldername = "tankers/cleanedData"
+		foldername = "{root_folder}/cleanedData".format(root_folder = root_folder)
+
+	utils.queryPath(foldername)
 
 	aggregateData = None
 	for index in range(0, len(fileNames)):
 		filename = fileNames[index]
-		if(out_sample_test):
-			filename_prefix = "out_sample_test/"
-		else:
-			filename_prefix = ""
 			
 		data = []
 		countSpeedGreaterThan10 = 0
 		maxSpeed = 0
-		with open('tankers/{filename}'.format(filename = filename_prefix + filename), 'rU') as csvfile:
+		with open('{input_path}/{filename}'.format(input_path = input_path, filename = filename), 'rU') as csvfile:
 			reader = csv.DictReader(csvfile, dialect=csv.excel_tab, delimiter = ',')
 
 			# skip the first iteration
