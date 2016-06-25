@@ -258,7 +258,7 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	dg = HAC.dendrogram(cluster_result)
 	plt.xlabel("cluster_dengrogram_{fname}".format(fname = fname))
 	plt.savefig("{path}/cluster_dengrogram_{fname}.png".format(fname = fname, path = plot_path))
-	plt.show()
+	plt.clf()
 
 	if (criterion == 'distance'):
 		if (metric_func == trajectoryDissimilarityL2):
@@ -274,7 +274,7 @@ def clusterTrajectories(trajectories, fname, path, metric_func = trajectoryDissi
 	plotRepresentativeTrajectory(this_cluster_label, trajectories, \
 		fname = "cluster_centroids_{n}_classes".format(n = len(set(this_cluster_label))), \
 		path = plot_path, 
-		show = True)
+		show = False)
 	
 	return this_cluster_label, [this_cluster_label], []
 
