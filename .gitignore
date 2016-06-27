@@ -9,9 +9,8 @@ tankers/cluster_result/
 tankers/out_sample_test/
 tankers/*.npz
 tankers/*.npz copy
-cleanedData/
-dynamic/
 *.pyc
 dataSource/dynamic/
+cleanedDataOriginal/
 
 
