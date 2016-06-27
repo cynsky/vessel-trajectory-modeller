@@ -414,7 +414,9 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 		cluster_label_to_cluster_size[label - 1] = len(np.where(opt_cluster_label == label)[0])
 	assert(np.sum([size for label, size in cluster_label_to_cluster_size.iteritems()]) == len(opt_cluster_label)), "sum of individual label size should == total count"
 
-	"""assign augmented trajectories to empty endpoints"""	
+	"""
+	assign augmented trajectories to empty endpoints: True/False
+	"""	
 	assign_augmented_to_empty_enpoints_flag = False
 	DEBUG_APPEND_INDEXS = []
 	if (assign_augmented_to_empty_enpoints_flag):
