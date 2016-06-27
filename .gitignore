@@ -2,11 +2,11 @@
 *.png
 *.jpg
 *.npz
-tankers/cleanedData/
+tankers/cleanedData/DEBUGGING/
+tankers/cleanedData/*.npz
+tankers/cleanedData/*.npz copy
 tankers/cluster_result/
-tankers/endpoints/
 tankers/out_sample_test/
-tankers/trajectories/
 tankers/*.npz
 tankers/*.npz copy
 cleanedData/

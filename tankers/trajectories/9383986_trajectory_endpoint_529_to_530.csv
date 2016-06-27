@@ -1,0 +1,3 @@
+navigation_status,rate_of_turn,speed_over_ground,latitude,longitude,course_over_ground,true_heading,ts,ts_string
+1.0,0.0,0.0,1.2353083333333332,103.65486666666666,1820.0,270.0,1416762261.5,2014-11-24T01:04:21Z
+1.0,0.0,0.0,1.2338,103.65418333333334,1040.0,357.0,1416792400.0,2014-11-24T09:26:40Z
