@@ -495,13 +495,13 @@ def executeClustering(root_folder, all_OD_trajectories_XY, reference_lat, refere
 
 	"""Save related csv files for Agent Based Simulator"""
 	writeToCSV.writeAllProtocolTrajectories(\
-		path = utils.queryPath(root_folder+"ABMInput"), \
+		path = utils.queryPath(root_folder+"LearningResult"), \
 		file_name = "protocol_trajectories_with_cluster_size", \
 		all_protocol_trajectories = all_protocol_trajectories, \
 		cluster_label_to_cluster_size = cluster_label_to_cluster_size)
 
 	writeToCSV.writeEndPointsToProtocolTrajectoriesIndexesWithMMSI(\
-		path = utils.queryPath(root_folder+"ABMInput"), \
+		path = utils.queryPath(root_folder+"LearningResult"), \
 		file_name = "endpoints_to_protocol_trajectories", \
 		endpoints = endpoints, \
 		endpoints_cluster_dict = endpoints_cluster_dict)
@@ -524,7 +524,7 @@ def main():
 	"""
 	Get min distance between vessels
 	"""
-	need_compute_mindistance = raw_input("Need to compute min_distance_matrix for ABM input? (y/n) :") == 'y'
+	need_compute_mindistance = raw_input("Need to compute min_distance_matrix for vessel interaction? (y/n) :") == 'y'
 	if (need_compute_mindistance):
 		"""sort the aggregateData with MMSI based on TS"""
 		data_with_mmsi = writeToCSV.readDataFromCSVWithMMSI(path = root_folder + "/cleanedData", filename = "aggregateData_with_mmsi.csv")
@@ -566,16 +566,16 @@ def main():
 
 		"""write min distance records for Agent Based Simulator"""
 		writeToCSV.writeVesselSpeedToDistance(\
-			path = utils.queryPath(root_folder+"ABMInput"),\
+			path = utils.queryPath(root_folder+"LearningResult"),\
 			file_name = "vessel_speed_to_distance", \
 			vessel_distance_speed_dict = vessel_distance_speed_dict)
 		writeToCSV.writeVesselMinDistanceMatrix(\
-			path = utils.queryPath(root_folder+"ABMInput"), \
+			path = utils.queryPath(root_folder+"LearningResult"), \
 			file_name = "vessel_min_distance_matrix", \
 			mmsi_list_dict = mmsi_list_dict, \
 			min_distance_matrix = min_distance_matrix)
 		writeToCSV.writeMMSIs(\
-			path = utils.queryPath(root_folder+"ABMInput"), \
+			path = utils.queryPath(root_folder+"LearningResult"), \
 			file_name = "mmsi_list", \
 			mmsi_list = [key for key, index in mmsi_list_dict.iteritems()])
 
