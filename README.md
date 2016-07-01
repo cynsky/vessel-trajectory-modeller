@@ -1,6 +1,6 @@
 # vessel-trajectory-modeller
 Trajectory Modelling for Vessel Tracking and Collision Avoidance
-- Author: Xing Yifan (A0105591J)
+- Author: Xing Yifan
 - Vessel-Trajectory-Modeller is a python machine learning package which receives large vessel maneuvering datasets from Automated Identification System ([AIS](http://catb.org/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a)). It makes use of Machine learning techniques for trajectory clustering and it extracts minumum maneuvering distance between pairs of vessels for modelling the interation among the different vessels. **Please cite the papers listed at the end if you use this code**
 
 - Setup Module Requirements:
